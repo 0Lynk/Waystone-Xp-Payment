@@ -77,16 +77,17 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
-        tag.put("tank", tank.writeToNBT(registries, new CompoundTag()));
+        // FluidTank's helpers put the fluid under the conventional "Fluid" key of the tag they are handed, so we
+        // hand them our own tag instead of nesting another wrapper. That keeps the block entity readable and
+        // writable with vanilla /data commands (verified on a live server).
+        tank.writeToNBT(registries, tag);
         tag.put("access", access.save());
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        if (tag.contains("tank")) {
-            tank.readFromNBT(registries, tag.getCompound("tank"));
-        }
+        tank.readFromNBT(registries, tag);
         if (tag.contains("access")) {
             access = AccessList.load(tag.getCompound("access"));
         }

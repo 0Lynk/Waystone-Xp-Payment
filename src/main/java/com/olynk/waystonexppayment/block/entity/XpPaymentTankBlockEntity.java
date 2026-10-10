@@ -2,6 +2,7 @@ package com.olynk.waystonexppayment.block.entity;
 
 import javax.annotation.Nullable;
 
+import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.auth.AccessList;
 import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.fluid.FluidRates;
@@ -19,6 +20,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
 /**
@@ -43,7 +45,27 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
             public boolean isFluidValid(FluidStack stack) {
                 // Only declared experience fluids may enter, and only one kind at a time (FluidTank already
                 // enforces "same fluid" once non-empty).
-                return FluidRates.accepts(stack);
+                boolean accepted = FluidRates.accepts(stack);
+                if (!accepted) {
+                    // Logged because "the tank refused my fluid" and "the tank accepted it but cannot pay with
+                    // it" look identical from the outside, and only the log can tell them apart afterwards.
+                    WaystoneXpPaymentMod.LOGGER.info("Tank at {} refuses fluid: {}",
+                            worldPosition.toShortString(), FluidRates.describe(stack));
+                }
+                return accepted;
+            }
+
+            @Override
+            public int fill(FluidStack resource, FluidAction action) {
+                int filled = super.fill(resource, action);
+                if (filled == 0 && action.execute() && !resource.isEmpty() && !getFluid().isEmpty()
+                        && !FluidStack.isSameFluidSameComponents(getFluid(), resource)) {
+                    WaystoneXpPaymentMod.LOGGER.info("Tank at {} holds {} and refuses the different fluid {} - "
+                                    + "drain it first (one fluid per tank)",
+                            worldPosition.toShortString(), FluidRates.describe(getFluid()),
+                            FluidRates.describe(resource));
+                }
+                return filled;
             }
 
             @Override

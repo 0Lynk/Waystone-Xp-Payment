@@ -2,6 +2,7 @@ package com.olynk.waystonexppayment.client;
 
 import java.util.Optional;
 
+import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.payment.XpRequirementScanner;
 
@@ -55,8 +56,16 @@ public final class XppClientRequirements {
         // after the tank's contents changed.
         int costXp = XpRequirementScanner.xpCost(original);
         if (costXp <= 0) {
+            // Happens with XP *level* requirements, which this addon does not cover.
+            WaystoneXpPaymentMod.LOGGER.info("[client] payment tank below the waystone, but this trip has no XP "
+                    + "point cost; leaving the vanilla requirement in place");
             return original;
         }
+        // Logged because "the button is grey" can mean either "our hook never ran" or "the tank is not usable",
+        // and this line separates the two.
+        WaystoneXpPaymentMod.LOGGER.info("[client] payment tank below the waystone at {}: allowing the teleport "
+                        + "button (cost {} XP, tank reports {} XP in store)", tank.getBlockPos().toShortString(),
+                costXp, tank.poolXpForClient());
         return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp);
     }
 

@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "waystone_xp_payment:block/xp_payment_tank"
+    }
+  }
+}

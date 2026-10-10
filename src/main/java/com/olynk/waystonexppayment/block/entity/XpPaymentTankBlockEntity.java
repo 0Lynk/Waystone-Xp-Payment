@@ -4,6 +4,7 @@ import javax.annotation.Nullable;
 
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.auth.AccessList;
+import com.olynk.waystonexppayment.client.XppClientTankRegistry;
 import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.fluid.FluidRates;
 import com.olynk.waystonexppayment.registry.XppRegistry;
@@ -15,6 +16,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -81,6 +83,14 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
 
     public FluidTank getTank() {
         return tank;
+    }
+
+    @Override
+    public void setLevel(Level level) {
+        super.setLevel(level);
+        // Every tank the client ever loads is remembered by position: Waystones asks the client about
+        // affordability even for waystones whose chunk is not currently loaded (see XppClientTankRegistry).
+        XppClientTankRegistry.remember(level, worldPosition);
     }
 
     public AccessList access() {

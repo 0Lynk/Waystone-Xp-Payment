@@ -41,13 +41,17 @@ public final class XppClientRequirements {
         }
 
         Optional<Waystone> fromWaystone = context.getFromWaystone();
-        XpPaymentTankBlockEntity tank = fromWaystone.map(value -> tankBelow(level, value)).orElse(null);
-        if (tank == null) {
+        boolean tank = fromWaystone.map(value -> tankBelow(level, value)).orElse(false);
+        if (!tank) {
             // Same fallback the server applies: arriving at a place whose waystone has its own tank can be paid
             // by that tank, so its list entry has to be clickable too.
             tank = tankBelow(level, context.getTargetWaystone());
         }
-        if (tank == null) {
+        if (!tank) {
+            // Logged as well as the positive case: "the button is grey" is answered differently depending on
+            // whether this hook ran and found nothing, or never ran at all.
+            WaystoneXpPaymentMod.LOGGER.info("[client] no payment tank for this entry (from={}, target={})",
+                    describe(fromWaystone.orElse(null)), describe(context.getTargetWaystone()));
             return original;
         }
 
@@ -61,22 +65,37 @@ public final class XppClientRequirements {
                     + "point cost; leaving the vanilla requirement in place");
             return original;
         }
-        // Logged because "the button is grey" can mean either "our hook never ran" or "the tank is not usable",
-        // and this line separates the two.
-        WaystoneXpPaymentMod.LOGGER.info("[client] payment tank below the waystone at {}: allowing the teleport "
-                        + "button (cost {} XP, tank reports {} XP in store)", tank.getBlockPos().toShortString(),
-                costXp, tank.poolXpForClient());
+        // Logged because "the button is grey" can mean either "our hook never ran" or "no tank is known here".
+        WaystoneXpPaymentMod.LOGGER.info("[client] payment tank known for this entry (from={}, target={}): "
+                        + "allowing the teleport button (cost {} XP)", describe(fromWaystone.orElse(null)),
+                describe(context.getTargetWaystone()), costXp);
         return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp);
     }
 
-    /** The tank directly below a waystone, when it is loaded on this client. */
-    private static XpPaymentTankBlockEntity tankBelow(Level level, Waystone waystone) {
+    /**
+     * Whether a payment tank sits directly below a waystone.
+     *
+     * <p>Checked against the loaded block entity first, then against tanks this client has seen before: for a
+     * destination whose chunk is not loaded there is no block entity to inspect, and without the remembered
+     * position the "travel back to the tank" entry would stay disabled forever.
+     */
+    private static boolean tankBelow(Level level, Waystone waystone) {
         if (waystone == null || !waystone.getDimension().equals(level.dimension())) {
             // Cross-dimension destinations are not loaded on this client; their entry stays gated.
-            return null;
+            return false;
         }
-        return level.getBlockEntity(waystone.getPos().below()) instanceof XpPaymentTankBlockEntity tank
-                ? tank
-                : null;
+        BlockPos tankPos = waystone.getPos().below();
+        if (level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity) {
+            XppClientTankRegistry.remember(level, tankPos);
+            return true;
+        }
+        return XppClientTankRegistry.knows(waystone.getDimension(), tankPos);
+    }
+
+    /** Waystone dimension and position for diagnostics, or {@code none}. */
+    private static String describe(Waystone waystone) {
+        return waystone == null
+                ? "none"
+                : waystone.getDimension().location() + "@" + waystone.getPos().toShortString();
     }
 }

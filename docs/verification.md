@@ -90,6 +90,24 @@ This smoke test exposed and then re-verified one real defect:
 5. Filling the tank through the fluid capability with pipes (no tech mod installed here); the fluid was placed
    through NBT instead, which exercises `FluidTank`/`FluidStack` serialisation but not the capability call path.
 
+### Client-side fixes verified statically only
+
+The right-click disconnect (`XppStatePayload` encoding an empty `FluidStack`) and the greyed-out teleport button
+(Waystones checks affordability on the *client*) were fixed after reports from a real modpack, but no client was
+ever run here, so the client rendering path is **not** runtime-verified. What was checked instead:
+
+- `FluidStack.java:123-142` (NeoForge sources) proves the plain `STREAM_CODEC` throws for an empty stack, and
+  `94-119` proves `OPTIONAL_STREAM_CODEC` encodes it as a varint 0.
+- `javap` on the modpack's own `ftb-teams-neoforge-2101.1.11.jar` resolves every reflective lookup the fixed
+  `FtbTeamsResolver` performs (`ALL-REFLECTION-OK` probe against that jar).
+- `javap` on the modpack's own `waystones-neoforge-1.21.1-21.1.45.jar` shows the mixin target
+  `public static WarpRequirement WaystonesAPI.resolveRequirements(WaystoneTeleportContext)` exists, and the built
+  jar contains `waystone_xp_payment.mixins.json` plus `[[mixins]] config = ...` in `neoforge.mods.toml`.
+
+The client behaviour itself (button enabled, tooltip, screen) still needs a human at a client: if the mixin fails
+to apply, the log shows `Mixin apply failed` for `waystone_xp_payment.mixins.json` during client startup.
+
+
 ## 4. Retrying the whole thing
 
 ```powershell

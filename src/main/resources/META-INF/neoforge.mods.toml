@@ -45,3 +45,8 @@ type = "optional"
 versionRange = "${kubejs_version_range}"
 ordering = "AFTER"
 side = "BOTH"
+
+# Client-only mixin: makes Waystones' teleport buttons treat the tank below the source as a payer, so the
+# preview is clickable before the server ever sees the request.
+[[mixins]]
+config = "waystone_xp_payment.mixins.json"

@@ -22,6 +22,10 @@ All notable changes to this project are documented here.
   interaction, creative-mode exemption, and the accepted-fluid list.
 - **Data-driven fluid declarations**: the `waystone_xp_payment:xp_fluid` recipe type accepts a fluid id or a
   fluid tag with a mB-per-XP rate, usable from a datapack or KubeJS.
+- **Clickable teleport previews**: Waystones decides *client-side* whether its teleport buttons can be pressed,
+  based on the config-resolved XP requirement, so a client-only mixin wraps that requirement and treats the tank
+  below the source as a payer. Without it, a player whose own XP is short could not even start a teleport that
+  the tank would have paid for. The server stays authoritative: it performs the real split on teleport.
 
 ### Compatibility
 

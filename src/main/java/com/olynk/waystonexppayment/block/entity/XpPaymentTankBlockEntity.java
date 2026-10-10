@@ -10,6 +10,11 @@ import com.olynk.waystonexppayment.registry.XppRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -24,8 +29,12 @@ import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
  */
 public class XpPaymentTankBlockEntity extends BlockEntity {
 
+    /** Network-only key holding the server-computed XP value of the pool (never written to world data). */
+    private static final String SYNC_POOL_XP = "XppPoolXp";
+
     private final FluidTank tank;
     private AccessList access = new AccessList();
+    private int syncedPoolXp = -1;
 
     public XpPaymentTankBlockEntity(BlockPos pos, BlockState state) {
         super(XppRegistry.XP_PAYMENT_TANK_BE.get(), pos, state);
@@ -61,6 +70,16 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         return FluidRates.xpValue(tank.getFluid());
     }
 
+    /**
+     * Pool value as the server last computed it, for the client-side teleport preview.
+     *
+     * <p>The client has its own rate table but not the server's recipe manager, so a fluid declared only by a
+     * datapack recipe would look worthless there; the sync tag carries the authoritative number.
+     */
+    public int poolXpForClient() {
+        return syncedPoolXp >= 0 ? syncedPoolXp : poolXp();
+    }
+
     /** mB per XP for the fluid currently in the tank (falls back to the configured default). */
     public int mbPerXp() {
         return FluidRates.mbPerXp(tank.getFluid());
@@ -90,6 +109,34 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         tank.readFromNBT(registries, tag);
         if (tag.contains("access")) {
             access = AccessList.load(tag.getCompound("access"));
+        }
+        // Present only in the network sync tag (getUpdateTag), never in saved world data.
+        syncedPoolXp = tag.contains(SYNC_POOL_XP) ? Math.max(0, tag.getInt(SYNC_POOL_XP)) : -1;
+    }
+
+    @Override
+    public void setChanged() {
+        super.setChanged();
+        broadcastToClients();
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        CompoundTag tag = saveWithoutMetadata(registries);
+        tag.putInt(SYNC_POOL_XP, poolXp());
+        return tag;
+    }
+
+    @Nullable
+    @Override
+    public Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this, BlockEntity::getUpdateTag);
+    }
+
+    /** The client-side preview reads the pool value from the block entity, so changes have to reach clients. */
+    private void broadcastToClients() {
+        if (level instanceof ServerLevel serverLevel && !serverLevel.isClientSide()) {
+            serverLevel.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
         }
     }
 }

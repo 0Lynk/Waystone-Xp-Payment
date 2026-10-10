@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.olynk.waystonexppayment.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "WaystonesApiClientMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

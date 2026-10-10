@@ -8,6 +8,7 @@ import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.fluid.FluidRates;
 import com.olynk.waystonexppayment.payment.FluidPaymentRequirement;
+import com.olynk.waystonexppayment.payment.TankPlacement;
 import com.olynk.waystonexppayment.payment.XpRequirementScanner;
 
 import net.blay09.mods.waystones.api.Waystone;
@@ -83,7 +84,7 @@ public final class XppTeleportHandler {
         if (level == null) {
             return null;
         }
-        BlockPos tankPos = waystone.getPos().below();
+        BlockPos tankPos = TankPlacement.tankPosFor(level, waystone);
         if (!(level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity tank) || tank.getTank().isEmpty()) {
             // Unloaded destination chunks land here on purpose: fall back to the player rather than guess.
             return null;

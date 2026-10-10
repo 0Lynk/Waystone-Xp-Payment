@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
+import com.olynk.waystonexppayment.payment.TankPlacement;
 import com.olynk.waystonexppayment.payment.XpRequirementScanner;
 
 import net.blay09.mods.waystones.api.Waystone;
@@ -84,7 +85,7 @@ public final class XppClientRequirements {
             // Cross-dimension destinations are not loaded on this client; their entry stays gated.
             return false;
         }
-        BlockPos tankPos = waystone.getPos().below();
+        BlockPos tankPos = TankPlacement.tankPosFor(level, waystone);
         if (level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity) {
             XppClientTankRegistry.remember(level, tankPos);
             return true;

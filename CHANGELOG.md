@@ -33,5 +33,7 @@ All notable changes to this project are documented here.
 - A tank's capacity is fixed when it is placed; changing `capacityMb` later only affects newly placed tanks.
 - FTB Teams support is reflective, so an FTB Teams release that renames its API degrades to "player entries
   only" (logged as a warning) instead of failing to load.
-- The tank has not yet been smoke-tested in a running game on this machine: `gradle runServer` cannot fetch two
-  launcher artifacts from the unreachable `maven.neoforged.net`. See `docs/verification.md` for the exact state.
+- The tank has been smoke-tested on a dedicated dev server for everything that does not need a player: block and
+  block-entity registration, NBT round-trip (fluid + access list), datapack-declared fluid rates and config
+  generation. The in-game payment path, the access screen and the FTB Teams path still need a real client or a
+  GameTest — see `docs/verification.md`, section 3, for the evidence and the exact list of what is not covered.

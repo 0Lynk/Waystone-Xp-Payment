@@ -28,10 +28,13 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(
                     WaystoneXpPaymentMod.MOD_ID, "tank_state"));
 
+    // OPTIONAL_STREAM_CODEC, not STREAM_CODEC: the plain one is backed by FluidStack's non-empty codec and
+    // throws "Empty FluidStack not allowed" for an empty tank, which fails the packet and disconnects the
+    // player (observed on a live client: empty tank + right click -> EncoderException -> lost connection).
     public static final StreamCodec<RegistryFriendlyByteBuf, XppStatePayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeBlockPos(payload.pos());
-                FluidStack.STREAM_CODEC.encode(buffer, payload.fluid());
+                FluidStack.OPTIONAL_STREAM_CODEC.encode(buffer, payload.fluid());
                 buffer.writeVarInt(payload.capacity());
                 buffer.writeVarInt(payload.poolXp());
                 buffer.writeVarInt(payload.mbPerXp());
@@ -42,7 +45,7 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
             },
             buffer -> new XppStatePayload(
                     buffer.readBlockPos(),
-                    FluidStack.STREAM_CODEC.decode(buffer),
+                    FluidStack.OPTIONAL_STREAM_CODEC.decode(buffer),
                     buffer.readVarInt(),
                     buffer.readVarInt(),
                     buffer.readVarInt(),

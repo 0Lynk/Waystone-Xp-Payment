@@ -3,6 +3,7 @@ package com.olynk.waystonexppayment.fluid;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import com.olynk.waystonexppayment.config.XppConfig;
@@ -55,8 +56,27 @@ public final class FluidRates {
         return FluidRateTable.builder()
                 .fallbackMbPerXp(settings.mbPerXp())
                 .acceptUndeclared(settings.acceptUndeclaredFluids())
+                .acceptExperienceNamedFluids(settings.acceptExperienceNamedFluids())
                 .declareAll(entries)
                 .build();
+    }
+
+    /**
+     * Human-readable explanation of how (or whether) a stack counts as experience fluid.
+     *
+     * <p>Exists so {@code /waystonexppayment info} and the teleport log can answer "why is this fluid not
+     * paying?" from the player's own machine instead of from speculation.
+     */
+    public static String describe(FluidStack stack) {
+        if (stack.isEmpty()) {
+            return "empty tank";
+        }
+        String id = idOf(stack);
+        List<String> tags = matchingTags(stack);
+        Optional<FluidRateTable.Resolution> resolution = table.resolve(id, tags);
+        return resolution
+                .map(found -> id + " -> " + found.mbPerXp() + " mB/XP via " + found.source() + " (tags: " + tags + ")")
+                .orElseGet(() -> id + " -> NOT accepted (tags: " + tags + ")");
     }
 
     public static String idOf(FluidStack stack) {

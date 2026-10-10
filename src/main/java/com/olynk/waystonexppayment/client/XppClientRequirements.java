@@ -40,11 +40,13 @@ public final class XppClientRequirements {
         }
 
         Optional<Waystone> fromWaystone = context.getFromWaystone();
-        if (fromWaystone.isEmpty()) {
-            return original;
+        XpPaymentTankBlockEntity tank = fromWaystone.map(value -> tankBelow(level, value)).orElse(null);
+        if (tank == null) {
+            // Same fallback the server applies: arriving at a place whose waystone has its own tank can be paid
+            // by that tank, so its list entry has to be clickable too.
+            tank = tankBelow(level, context.getTargetWaystone());
         }
-        BlockPos tankPos = fromWaystone.get().getPos().below();
-        if (!(level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity tank)) {
+        if (tank == null) {
             return original;
         }
 
@@ -59,5 +61,16 @@ public final class XppClientRequirements {
             return original;
         }
         return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp, poolXp);
+    }
+
+    /** The tank directly below a waystone, when it is loaded on this client. */
+    private static XpPaymentTankBlockEntity tankBelow(Level level, Waystone waystone) {
+        if (waystone == null || !waystone.getDimension().equals(level.dimension())) {
+            // Cross-dimension destinations are not loaded on this client; their entry stays gated.
+            return null;
+        }
+        return level.getBlockEntity(waystone.getPos().below()) instanceof XpPaymentTankBlockEntity tank
+                ? tank
+                : null;
     }
 }

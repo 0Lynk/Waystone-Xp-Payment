@@ -23,15 +23,61 @@ public final class FluidRateTable {
 
     private final int fallbackMbPerXp;
     private final boolean acceptUndeclared;
+    private final boolean acceptExperienceNamedFluids;
     private final Map<String, Integer> byFluidId;
     private final Map<String, Integer> byTag;
 
-    private FluidRateTable(int fallbackMbPerXp, boolean acceptUndeclared, Map<String, Integer> byFluidId,
-                           Map<String, Integer> byTag) {
+    /** A resolved rate plus why it was chosen, so logs and the info command can explain themselves. */
+    public record Resolution(int mbPerXp, String source) {
+    }
+
+    private FluidRateTable(int fallbackMbPerXp, boolean acceptUndeclared, boolean acceptExperienceNamedFluids,
+                           Map<String, Integer> byFluidId, Map<String, Integer> byTag) {
         this.fallbackMbPerXp = fallbackMbPerXp;
         this.acceptUndeclared = acceptUndeclared;
+        this.acceptExperienceNamedFluids = acceptExperienceNamedFluids;
         this.byFluidId = Map.copyOf(byFluidId);
         this.byTag = Map.copyOf(byTag);
+    }
+
+    /**
+     * Resolves a rate and records how it was found.
+     *
+     * <p>Order: exact fluid id -> the id's still/flowing counterpart -> fluid tag -> experience-sounding name
+     * (opt-in) -> fallback (opt-in). The counterpart step exists because mods register one id per variant
+     * ({@code x:xp_fluid} and {@code x:flowing_xp_fluid}) and a tank can end up holding either one depending on
+     * whether it was filled by pipe or by bucket.
+     *
+     * @param fluidId fluid id in {@code namespace:path} form
+     * @param tags    the fluid's tag ids in {@code namespace:path} form (no leading {@code #})
+     */
+    public Optional<Resolution> resolve(String fluidId, Collection<String> tags) {
+        Integer exact = byFluidId.get(fluidId);
+        if (exact != null) {
+            return Optional.of(new Resolution(exact, "exact id " + fluidId));
+        }
+
+        String counterpart = counterpartId(fluidId);
+        if (counterpart != null) {
+            Integer mirrored = byFluidId.get(counterpart);
+            if (mirrored != null) {
+                return Optional.of(new Resolution(mirrored, "counterpart id " + counterpart));
+            }
+        }
+
+        for (String tag : tags) {
+            Integer byTagRate = byTag.get(tag);
+            if (byTagRate != null) {
+                return Optional.of(new Resolution(byTagRate, "tag #" + tag));
+            }
+        }
+
+        if (acceptExperienceNamedFluids && looksLikeExperience(fluidId)) {
+            return Optional.of(new Resolution(fallbackMbPerXp, "experience-like name"));
+        }
+
+        return acceptUndeclared ? Optional.of(new Resolution(fallbackMbPerXp, "fallback (undeclared accepted)"))
+                : Optional.empty();
     }
 
     /**
@@ -39,17 +85,40 @@ public final class FluidRateTable {
      * @param tags    the fluid's tag ids in {@code namespace:path} form (no leading {@code #})
      */
     public OptionalInt rateFor(String fluidId, Collection<String> tags) {
-        Integer exact = byFluidId.get(fluidId);
-        if (exact != null) {
-            return OptionalInt.of(exact);
+        return resolve(fluidId, tags).map(resolution -> OptionalInt.of(resolution.mbPerXp()))
+                .orElseGet(OptionalInt::empty);
+    }
+
+    /** The same fluid id with {@code flowing_} added to, or removed from, its path. */
+    static String counterpartId(String fluidId) {
+        int colon = fluidId.indexOf(':');
+        if (colon < 0 || colon == fluidId.length() - 1) {
+            return null;
         }
-        for (String tag : tags) {
-            Integer byTagRate = byTag.get(tag);
-            if (byTagRate != null) {
-                return OptionalInt.of(byTagRate);
+        String namespace = fluidId.substring(0, colon);
+        String path = fluidId.substring(colon + 1);
+        if (path.startsWith("flowing_")) {
+            return namespace + ":" + path.substring("flowing_".length());
+        }
+        return namespace + ":flowing_" + path;
+    }
+
+    /**
+     * Whether an id is named after experience rather than declared.
+     *
+     * <p>Deliberately narrow - a whole {@code xp} or {@code experience} segment, never a substring - so
+     * {@code some_mod:xp_fluid}, {@code some_mod:flowing_xp_fluid}, {@code some_mod:xp_still} and
+     * {@code some_mod:liquid_experience} qualify while {@code some_mod:expansion} does not.
+     */
+    static boolean looksLikeExperience(String fluidId) {
+        int colon = fluidId.indexOf(':');
+        String path = colon < 0 ? fluidId : fluidId.substring(colon + 1);
+        for (String part : path.split("_")) {
+            if (part.equals("xp") || part.equals("experience")) {
+                return true;
             }
         }
-        return acceptUndeclared ? OptionalInt.of(fallbackMbPerXp) : OptionalInt.empty();
+        return false;
     }
 
     public boolean accepts(String fluidId, Collection<String> tags) {
@@ -128,6 +197,7 @@ public final class FluidRateTable {
         private final Map<String, Integer> tags = new LinkedHashMap<>();
         private int fallbackMbPerXp = DEFAULT_MB_PER_XP;
         private boolean acceptUndeclared;
+        private boolean acceptExperienceNamedFluids = true;
 
         public Builder fallbackMbPerXp(int value) {
             this.fallbackMbPerXp = Math.max(1, value);
@@ -136,6 +206,11 @@ public final class FluidRateTable {
 
         public Builder acceptUndeclared(boolean value) {
             this.acceptUndeclared = value;
+            return this;
+        }
+
+        public Builder acceptExperienceNamedFluids(boolean value) {
+            this.acceptExperienceNamedFluids = value;
             return this;
         }
 
@@ -165,7 +240,7 @@ public final class FluidRateTable {
         }
 
         public FluidRateTable build() {
-            return new FluidRateTable(fallbackMbPerXp, acceptUndeclared, fluidIds, tags);
+            return new FluidRateTable(fallbackMbPerXp, acceptUndeclared, acceptExperienceNamedFluids, fluidIds, tags);
         }
     }
 }

@@ -10,9 +10,15 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  */
 public final class XppConfig {
 
-    /** Fluids accepted as payment out of the box (Create: Enchantment Industry + the common tag). */
+    /**
+     * Fluids accepted as payment out of the box: the common {@code c:experience} tag plus the ids of the
+     * experience fluids this addon has actually been tested against. Flowing variants are matched through their
+     * still id, so they do not need their own entry.
+     */
     public static final List<String> DEFAULT_FLUID_CONVERSIONS = List.of(
             "create_enchantment_industry:experience=1",
+            "beyonddimensions:xp_fluid=1",
+            "sophisticatedcore:xp_still=1",
             "#c:experience=1");
 
     public static final ModConfigSpec SPEC;
@@ -22,6 +28,7 @@ public final class XppConfig {
     public static final ModConfigSpec.BooleanValue ALLOW_BUCKET_INTERACTION;
     public static final ModConfigSpec.BooleanValue SKIP_PAYMENT_IN_CREATIVE;
     public static final ModConfigSpec.BooleanValue ACCEPT_UNDECLARED_FLUIDS;
+    public static final ModConfigSpec.BooleanValue ACCEPT_EXPERIENCE_NAMED_FLUIDS;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> FLUID_CONVERSIONS;
 
     static {
@@ -42,6 +49,13 @@ public final class XppConfig {
                 .comment("When true, a fluid that is neither listed in fluidConversions nor declared by a",
                         "recipe is accepted at mbPerXp. Default false: only declared fluids are valid payment.")
                 .define("acceptUndeclaredFluids", false);
+
+        ACCEPT_EXPERIENCE_NAMED_FLUIDS = builder
+                .comment("When true, a fluid is accepted at mbPerXp when its id contains a whole 'xp' or",
+                        "'experience' word (some_mod:xp_fluid, some_mod:flowing_xp_fluid, some_mod:xp_still,",
+                        "some_mod:liquid_experience). Safety net for mods that do not join the c:experience tag;",
+                        "set false to accept only fluidConversions, recipe declarations and tags.")
+                .define("acceptExperienceNamedFluids", true);
 
         FLUID_CONVERSIONS = builder
                 .comment("Fluid conversions, format '<fluid id or #tag>=<mB per XP>'.",

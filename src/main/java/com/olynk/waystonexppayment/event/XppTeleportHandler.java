@@ -92,6 +92,13 @@ public final class XppTeleportHandler {
             // Not authorised to draw from this pool: the player pays normally instead of being blocked.
             return null;
         }
+        if (tank.poolXp() <= 0) {
+            // The tank holds something it cannot be paid with. Say so once per attempt: this is the only way to
+            // tell "the fluid is not recognized" apart from "the pool is empty" after the fact.
+            WaystoneXpPaymentMod.LOGGER.warn("Tank at {} cannot pay: {} (add the fluid to fluidConversions or "
+                            + "declare it with a waystone_xp_payment:xp_fluid recipe)",
+                    tankPos.toShortString(), FluidRates.describe(tank.getTank().getFluid()));
+        }
         return new Payer(kind, level, tankPos, tank);
     }
 

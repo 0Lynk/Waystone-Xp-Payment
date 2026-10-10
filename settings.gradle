@@ -1,0 +1,12 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { name = 'NeoForged'; url = 'https://maven.neoforged.net/releases' }
+    }
+}
+
+plugins {
+    // no plugins here
+}
+
+rootProject.name = 'waystone_xp_payment'

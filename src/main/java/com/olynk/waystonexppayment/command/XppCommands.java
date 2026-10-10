@@ -12,6 +12,7 @@ import com.olynk.waystonexppayment.auth.AccessList;
 import com.olynk.waystonexppayment.auth.TeamResolver;
 import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
+import com.olynk.waystonexppayment.fluid.FluidRates;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -69,6 +70,7 @@ public final class XppCommands {
                 + " | fluid=" + tank.getTank().getFluid().getHoverName().getString()
                 + " " + tank.getTank().getFluidAmount() + "/" + tank.getTank().getCapacity() + " mB"
                 + " | value=" + tank.poolXp() + " XP"
+                + " | " + FluidRates.describe(tank.getTank().getFluid())
                 + " | mode=" + (access.isWhitelist() ? "whitelist" : "blacklist")
                 + " | players=" + access.players().size() + " teams=" + access.teams().size()), false);
         return 1;

@@ -40,8 +40,9 @@ class FluidRateTableTest {
                 .declare("#c:experience", 1)
                 .build();
 
-        assertFalse(table.accepts("some_mod:not_xp", List.of("forge:experience")));
-        assertEquals(0, table.xpValue("some_mod:not_xp", List.of(), 1000));
+        // "mana" is deliberately a name the experience heuristic must not match (see the *_xp tests below).
+        assertFalse(table.accepts("some_mod:mana", List.of("forge:experience")));
+        assertEquals(0, table.xpValue("some_mod:mana", List.of(), 1000));
     }
 
     @Test
@@ -122,5 +123,56 @@ class FluidRateTableTest {
         FluidRateTable table = FluidRateTable.builder().build();
         assertEquals(1, table.fallbackMbPerXp());
         assertEquals(0, table.declaredCount());
+    }
+
+    @Test
+    void declaredStillFluidAlsoCoversItsFlowingVariant() {
+        // Mods register one id per variant and a tank can hold either one depending on how it was filled.
+        FluidRateTable table = FluidRateTable.builder().declare(CEI, 1).build();
+
+        assertEquals(OptionalInt.of(1),
+                table.rateFor("create_enchantment_industry:flowing_experience", List.of()));
+        assertEquals("counterpart id create_enchantment_industry:experience",
+                table.resolve("create_enchantment_industry:flowing_experience", List.of()).orElseThrow().source());
+    }
+
+    @Test
+    void declaredFlowingFluidAlsoCoversItsStillVariant() {
+        FluidRateTable table = FluidRateTable.builder().declare("some_mod:flowing_xp_fluid", 3).build();
+
+        assertEquals(OptionalInt.of(3), table.rateFor("some_mod:xp_fluid", List.of()));
+    }
+
+    @Test
+    void experienceNamedFluidsAreAcceptedByDefault() {
+        FluidRateTable table = FluidRateTable.builder().build();
+
+        assertEquals(OptionalInt.of(1), table.rateFor("some_mod:xp_fluid", List.of()));
+        assertEquals(OptionalInt.of(1), table.rateFor("some_mod:flowing_xp_fluid", List.of()));
+        assertEquals(OptionalInt.of(1), table.rateFor("some_mod:xp_still", List.of()));
+        assertEquals(OptionalInt.of(1), table.rateFor("some_mod:liquid_experience", List.of()));
+        assertTrue(table.rateFor("some_mod:xp_fluid", List.of()).isPresent());
+    }
+
+    @Test
+    void experienceNamedAcceptanceNeverMatchesSubstrings() {
+        FluidRateTable table = FluidRateTable.builder().build();
+
+        assertTrue(table.rateFor("some_mod:expansion", List.of()).isEmpty());
+        assertTrue(table.rateFor("some_mod:express", List.of()).isEmpty());
+    }
+
+    @Test
+    void experienceNamedAcceptanceCanBeDisabled() {
+        FluidRateTable table = FluidRateTable.builder().acceptExperienceNamedFluids(false).build();
+
+        assertTrue(table.rateFor("some_mod:xp_fluid", List.of()).isEmpty());
+    }
+
+    @Test
+    void declaredRatesWinOverTheNameHeuristic() {
+        FluidRateTable table = FluidRateTable.builder().declare("some_mod:xp_fluid", 8).build();
+
+        assertEquals(OptionalInt.of(8), table.rateFor("some_mod:xp_fluid", List.of()));
     }
 }

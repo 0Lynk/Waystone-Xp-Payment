@@ -5,9 +5,10 @@ package com.olynk.waystonexppayment.config;
  * {@link #DEFAULTS} is used before the config file has been loaded.
  */
 public record XppSettings(int mbPerXp, int capacityMb, boolean allowBucketInteraction,
-                          boolean skipPaymentInCreative, boolean acceptUndeclaredFluids) {
+                          boolean skipPaymentInCreative, boolean acceptUndeclaredFluids,
+                          boolean acceptExperienceNamedFluids) {
 
-    public static final XppSettings DEFAULTS = new XppSettings(1, 4000, true, true, false);
+    public static final XppSettings DEFAULTS = new XppSettings(1, 4000, true, true, false, true);
 
     private static volatile XppSettings current = DEFAULTS;
 
@@ -23,7 +24,8 @@ public record XppSettings(int mbPerXp, int capacityMb, boolean allowBucketIntera
                     XppConfig.TANK_CAPACITY_MB.get(),
                     XppConfig.ALLOW_BUCKET_INTERACTION.get(),
                     XppConfig.SKIP_PAYMENT_IN_CREATIVE.get(),
-                    XppConfig.ACCEPT_UNDECLARED_FLUIDS.get());
+                    XppConfig.ACCEPT_UNDECLARED_FLUIDS.get(),
+                    XppConfig.ACCEPT_EXPERIENCE_NAMED_FLUIDS.get());
         } catch (IllegalStateException e) {
             current = DEFAULTS;
         }

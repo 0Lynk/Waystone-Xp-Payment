@@ -26,6 +26,14 @@ All notable changes to this project are documented here.
   based on the config-resolved XP requirement, so a client-only mixin wraps that requirement and treats the tank
   below the source as a payer. Without it, a player whose own XP is short could not even start a teleport that
   the tank would have paid for. The server stays authoritative: it performs the real split on teleport.
+- **Either end of the trip can pay**: the tank below the *destination* waystone pays as well, so arriving
+  somewhere can be funded by that place's pool; the source tank is preferred when both exist.
+- **More forgiving fluid matching**: a declared still fluid also covers its `flowing_` counterpart, and fluids
+  whose id contains a whole `xp`/`experience` word (`some_mod:xp_fluid`, `some_mod:flowing_xp_still`,
+  `some_mod:liquid_experience`, ...) count as experience fluid at `mbPerXp` unless `acceptExperienceNamedFluids`
+  is turned off.
+- **Self-explaining diagnostics**: `/waystonexppayment info` prints the tank fluid id, why it was accepted (or
+  that it was not) and which tags matched; every tank-paid teleport logs one line with the same detail.
 
 ### Compatibility
 

@@ -50,17 +50,14 @@ public final class XppClientRequirements {
             return original;
         }
 
-        // Server-computed pool value from the block entity sync: the client's own rate table cannot know about
-        // fluids that were declared by a datapack recipe, which is the server's recipe manager's business.
-        int poolXp = tank.poolXpForClient();
-        if (poolXp <= 0) {
-            return original;
-        }
+        // Presence of a tank is all the client needs to know: whether that tank can actually cover this trip is
+        // the server's decision, and answering it from a synced snapshot is what used to leave the button grey
+        // after the tank's contents changed.
         int costXp = XpRequirementScanner.xpCost(original);
         if (costXp <= 0) {
             return original;
         }
-        return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp, poolXp);
+        return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp);
     }
 
     /** The tank directly below a waystone, when it is loaded on this client. */

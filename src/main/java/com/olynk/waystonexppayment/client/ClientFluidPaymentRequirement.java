@@ -2,34 +2,41 @@ package com.olynk.waystonexppayment.client;
 
 import java.util.List;
 
+import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
+import com.olynk.waystonexppayment.payment.PaymentSplit;
+
 import net.blay09.mods.waystones.api.requirement.WarpRequirement;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * Client-side wrapper that lets a teleport be attempted when a payment tank sits below either end of the trip.
+ * Client-side preview that answers "can this teleport be paid for", mirroring the server's tank-first,
+ * player-second split so the button greys out exactly when the trip is unaffordable.
  *
- * <p>Waystones decides whether its teleport buttons are clickable on the <em>client</em>, from the
- * config-resolved XP requirement, which knows nothing about tanks. This wrapper answers "somebody is willing to
- * pay for this" and leaves the arithmetic to the server: the server's requirement does the tank-first,
- * player-second split and rejects the teleport when neither side covers it, at which point the player sees
- * Waystones' ordinary NotEnoughXp message.
+ * <p>The payer is a *loaded* tank, a tank that is only remembered (its chunk is not loaded here), or none:
+ * <ul>
+ *   <li>loaded with data - mirror the arithmetic against the tank's live contents;</li>
+ *   <li>no data yet, or only remembered - stay permissive and let the server decide, because reading "no
+ *       information" as "empty" is what once left a full tank's button grey forever.</li>
+ * </ul>
  *
- * <p>Deliberately does <em>not</em> look at the tank's synced contents. An earlier version did, and a stale or
- * missing block-entity snapshot made a perfectly usable tank look empty forever - the button stayed grey even
- * after the unrecognized fluid had been drained and replaced.
+ * <p>Never consumes anything: the server performs the real payment through its own requirement.
  */
 public final class ClientFluidPaymentRequirement implements WarpRequirement {
 
     private final WarpRequirement delegate;
     private final WarpRequirement residual;
     private final int costXp;
+    private final XpPaymentTankBlockEntity payer;
 
-    public ClientFluidPaymentRequirement(WarpRequirement delegate, WarpRequirement residual, int costXp) {
+    /** @param payer the loaded tank that will pay, or {@code null} when a tank exists but cannot be inspected here */
+    public ClientFluidPaymentRequirement(WarpRequirement delegate, WarpRequirement residual, int costXp,
+                                         XpPaymentTankBlockEntity payer) {
         this.delegate = delegate;
         this.residual = residual;
         this.costXp = costXp;
+        this.payer = payer;
     }
 
     public WarpRequirement delegate() {
@@ -38,8 +45,14 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
 
     @Override
     public boolean canAfford(Player player) {
-        // Everything except the XP cost still has to hold (cooldowns, item costs, ...); the XP part is the
-        // server's call, because only the server knows what the tank contains right now.
+        if (payer != null && payer.hasSyncedData()) {
+            // Same rule the server applies: the tank pays first, the player covers the remainder.
+            int poolXp = payer.poolXpForClient();
+            if (!PaymentSplit.compute(costXp, poolXp, 1, player.totalExperience).affordable()) {
+                return false;
+            }
+        }
+        // Everything except the XP cost still has to hold (cooldowns, item costs, ...).
         return residual == null || residual.canAfford(player);
     }
 

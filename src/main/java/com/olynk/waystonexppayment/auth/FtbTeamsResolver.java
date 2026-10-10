@@ -46,8 +46,12 @@ final class FtbTeamsResolver implements TeamResolver {
             Class<?> apiClass = Class.forName(API_CLASS);
             Class<?> teamClass = Class.forName(TEAM_CLASS);
             this.api = apiClass.getMethod("api").invoke(null);
-            this.isManagerLoaded = apiClass.getMethod("isManagerLoaded");
-            this.getManager = apiClass.getMethod("getManager");
+            // isManagerLoaded()/getManager() live on FTBTeamsAPI$API (what api() returns), NOT on FTBTeamsAPI
+            // itself - addressing the outer class here threw NoSuchMethodException and silently disabled team
+            // support on a live client.
+            Class<?> apiInterface = Class.forName(API_CLASS + "$API");
+            this.isManagerLoaded = apiInterface.getMethod("isManagerLoaded");
+            this.getManager = apiInterface.getMethod("getManager");
             Class<?> managerClass = Class.forName("dev.ftb.mods.ftbteams.api.TeamManager");
             this.getTeamForPlayerId = managerClass.getMethod("getTeamForPlayerID", UUID.class);
             this.getTeams = managerClass.getMethod("getTeams");

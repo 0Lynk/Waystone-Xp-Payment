@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "waystone_xp_payment:block/xp_payment_tank"
+  }
+}

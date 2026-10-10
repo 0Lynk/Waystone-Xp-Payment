@@ -1,0 +1,7 @@
+{
+  "block.waystone_xp_payment.xp_payment_tank": "XP Payment Tank",
+  "gui.waystone_xp_payment.fluid_cost": "Costs %s XP, paid from the tank below",
+  "commands.waystone_xp_payment.not_looking_at_tank": "Look at an XP payment tank within 10 blocks first.",
+  "commands.waystone_xp_payment.no_team_mod": "No supported team mod is installed.",
+  "commands.waystone_xp_payment.unknown_team": "No team with that name exists."
+}

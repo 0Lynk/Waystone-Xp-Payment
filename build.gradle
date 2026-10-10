@@ -46,8 +46,8 @@ dependencies {
     // lives there, so it has to be on the compile classpath too.
     implementation "net.blay09.mods:balm-neoforge:${balm_version}"
 
-    // Optional soft dependency: compile-time API only (FTB Teams is not required at runtime).
-    compileOnly("dev.ftb.mods:ftb-teams-neoforge:${ftbteams_version}") { transitive = false }
+    // FTB Teams is a soft dependency reached through reflection (see FtbTeamsResolver), so the build does not
+    // need FTB's own maven repository.
 
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'

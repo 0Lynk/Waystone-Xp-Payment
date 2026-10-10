@@ -23,6 +23,14 @@ All notable changes to this project are documented here.
 - **Data-driven fluid declarations**: the `waystone_xp_payment:xp_fluid` recipe type accepts a fluid id or a
   fluid tag with a mB-per-XP rate, usable from a datapack or KubeJS.
 
+### Compatibility
+
+- Minecraft 1.21.1 with NeoForge 21.1.x.
+- Waystones **21.1.45 or newer**. The addon is compiled against 21.1.46, but every Waystones API it uses was
+  checked with `javap` against the 21.1.45 jar, so the older patch release loads too.
+- FTB Teams and KubeJS are optional; the tank works without them (player-only access control, config-declared
+  fluids only).
+
 ### Known limitations
 
 - The access screen's own labels are English-only for now (its feature strings are hardcoded rather than

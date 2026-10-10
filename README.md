@@ -27,11 +27,14 @@ This mod turns the payment into a **communal, automatable resource**:
 4. Teleport. The tank pays first; anything it cannot cover is paid by the player. If neither covers the cost,
    the teleport is cancelled and **nothing** is consumed.
 
-Access control (who may draw from the pool) is a whitelist or blacklist of players and FTB Teams.
-With the pools and teams mods installed it also works with FTB Teams; without it, team entries are simply
-unavailable.
+Access control (who may draw from the pool) is a whitelist or blacklist of players and FTB Teams. With FTB
+Teams installed a tank can grant or revoke a whole team at once; without it, team entries are simply
+unavailable and players are listed individually.
 
-- In-game: `/waystonexppayment info` and `/waystonexppayment access ...` while looking at a tank (op level 2).
+- In-game: right-click a tank to open its screen (mode toggle, "add me" / "remove me", and a toggle per team
+  you are in).
+- Operators, or a console: `/waystonexppayment info` and `/waystonexppayment access ...` while looking at a
+  tank (op level 2).
 - Config and datapack/KubeJS declarations, see below.
 
 ## Installation

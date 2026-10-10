@@ -39,6 +39,8 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     private final FluidTank tank;
     private AccessList access = new AccessList();
     private int syncedPoolXp = -1;
+    private int cachedPoolXp;
+    private boolean hasSyncedData;
 
     public XpPaymentTankBlockEntity(BlockPos pos, BlockState state) {
         super(XppRegistry.XP_PAYMENT_TANK_BE.get(), pos, state);
@@ -72,6 +74,8 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
 
             @Override
             protected void onContentsChanged() {
+                // Cached here so the client preview (icon render + live button refresh) only ever reads a field.
+                cachedPoolXp = FluidRates.xpValue(getFluid());
                 setChanged();
             }
         };
@@ -108,8 +112,25 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
      * <p>The client has its own rate table but not the server's recipe manager, so a fluid declared only by a
      * datapack recipe would look worthless there; the sync tag carries the authoritative number.
      */
+    /**
+     * XP the tank can pay with, as this side sees it.
+     *
+     * <p>Preferred source is the live fluid contents through this side's own rate table, so draining the tank is
+     * reflected immediately. The server's number is only a fallback for fluids declared by a datapack recipe,
+     * whose rate the client's recipe view may not know.
+     */
     public int poolXpForClient() {
-        return syncedPoolXp >= 0 ? syncedPoolXp : poolXp();
+        return cachedPoolXp > 0 ? cachedPoolXp : Math.max(0, syncedPoolXp);
+    }
+
+    /**
+     * Whether any tank data has reached this side.
+     *
+     * <p>False means "no information yet", which the preview must not read as "empty": treating missing data as
+     * zero is exactly what once left a full tank's button grey forever.
+     */
+    public boolean hasSyncedData() {
+        return hasSyncedData;
     }
 
     /** mB per XP for the fluid currently in the tank (falls back to the configured default). */
@@ -144,6 +165,8 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         }
         // Present only in the network sync tag (getUpdateTag), never in saved world data.
         syncedPoolXp = tag.contains(SYNC_POOL_XP) ? Math.max(0, tag.getInt(SYNC_POOL_XP)) : -1;
+        cachedPoolXp = FluidRates.xpValue(tank.getFluid());
+        hasSyncedData = true;
     }
 
     @Override

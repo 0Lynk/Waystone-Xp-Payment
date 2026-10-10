@@ -2,6 +2,8 @@ package com.olynk.waystonexppayment.client;
 
 import java.util.Optional;
 
+import javax.annotation.Nullable;
+
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.payment.TankPlacement;
@@ -42,13 +44,13 @@ public final class XppClientRequirements {
         }
 
         Optional<Waystone> fromWaystone = context.getFromWaystone();
-        boolean tank = fromWaystone.map(value -> tankBelow(level, value)).orElse(false);
-        if (!tank) {
-            // Same fallback the server applies: arriving at a place whose waystone has its own tank can be paid
-            // by that tank, so its list entry has to be clickable too.
-            tank = tankBelow(level, context.getTargetWaystone());
+        // Mirror the server's choice of payer: a usable tank under the source wins, otherwise the destination's.
+        // "Usable" means not empty, because an empty tank is no payer on the server either.
+        TankRef payer = payerAt(tankBelow(level, fromWaystone.orElse(null)));
+        if (payer == null) {
+            payer = payerAt(tankBelow(level, context.getTargetWaystone()));
         }
-        if (!tank) {
+        if (payer == null) {
             // Logged as well as the positive case: "the button is grey" is answered differently depending on
             // whether this hook ran and found nothing, or never ran at all.
             WaystoneXpPaymentMod.LOGGER.info("[client] no payment tank for this entry (from={}, target={})",
@@ -56,9 +58,6 @@ public final class XppClientRequirements {
             return original;
         }
 
-        // Presence of a tank is all the client needs to know: whether that tank can actually cover this trip is
-        // the server's decision, and answering it from a synced snapshot is what used to leave the button grey
-        // after the tank's contents changed.
         int costXp = XpRequirementScanner.xpCost(original);
         if (costXp <= 0) {
             // Happens with XP *level* requirements, which this addon does not cover.
@@ -67,30 +66,51 @@ public final class XppClientRequirements {
             return original;
         }
         // Logged because "the button is grey" can mean either "our hook never ran" or "no tank is known here".
-        WaystoneXpPaymentMod.LOGGER.info("[client] payment tank known for this entry (from={}, target={}): "
-                        + "allowing the teleport button (cost {} XP)", describe(fromWaystone.orElse(null)),
-                describe(context.getTargetWaystone()), costXp);
-        return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp);
+        WaystoneXpPaymentMod.LOGGER.info("[client] payment tank for this entry (from={}, target={}): {} "
+                        + "(cost {} XP)", describe(fromWaystone.orElse(null)),
+                describe(context.getTargetWaystone()),
+                payer.loaded() == null ? "chunk not loaded, leaving the decision to the server"
+                        : "pool " + payer.loaded().poolXpForClient() + " XP",
+                costXp);
+        return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp,
+                payer.loaded());
+    }
+
+    /** A tank below a waystone: the loaded block entity, or {@code null} when only its remembered position exists. */
+    private record TankRef(@Nullable XpPaymentTankBlockEntity loaded) {
     }
 
     /**
-     * Whether a payment tank sits directly below a waystone.
+     * The tank below a waystone: the loaded block entity when its chunk is here, otherwise the position this
+     * client remembers having seen a tank at, or {@code null} when there is none.
      *
-     * <p>Checked against the loaded block entity first, then against tanks this client has seen before: for a
-     * destination whose chunk is not loaded there is no block entity to inspect, and without the remembered
-     * position the "travel back to the tank" entry would stay disabled forever.
+     * <p>The remembered case must stay a distinct answer rather than "nothing": for a destination whose chunk is
+     * not loaded there is no block entity to inspect, and the server may well find a tank there when it loads the
+     * chunk to teleport.
      */
-    private static boolean tankBelow(Level level, Waystone waystone) {
+    private static TankRef tankBelow(Level level, Waystone waystone) {
         if (waystone == null || !waystone.getDimension().equals(level.dimension())) {
             // Cross-dimension destinations are not loaded on this client; their entry stays gated.
-            return false;
+            return null;
         }
         BlockPos tankPos = TankPlacement.tankPosFor(level, waystone);
-        if (level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity) {
+        if (level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity tank) {
             XppClientTankRegistry.remember(level, tankPos);
-            return true;
+            return new TankRef(tank);
         }
-        return XppClientTankRegistry.knows(waystone.getDimension(), tankPos);
+        return XppClientTankRegistry.knows(waystone.getDimension(), tankPos) ? new TankRef(null) : null;
+    }
+
+    /** A tank can only pay when it holds something; a remembered tank has unknown contents and must be kept. */
+    @Nullable
+    private static TankRef payerAt(@Nullable TankRef ref) {
+        if (ref == null) {
+            return null;
+        }
+        if (ref.loaded() == null) {
+            return ref;
+        }
+        return ref.loaded().getTank().isEmpty() ? null : ref;
     }
 
     /** Waystone dimension and position for diagnostics, or {@code none}. */

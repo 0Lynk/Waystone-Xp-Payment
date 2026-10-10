@@ -5,11 +5,14 @@ import java.util.function.Supplier;
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.block.XpPaymentTankBlock;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
+import com.olynk.waystonexppayment.menu.XpPaymentTankMenu;
 import com.olynk.waystonexppayment.recipe.XpFluidRecipe;
 import com.olynk.waystonexppayment.recipe.XpFluidRecipeSerializer;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
@@ -33,6 +36,8 @@ public final class XppRegistry {
             DeferredRegister.create(Registries.RECIPE_TYPE, WaystoneXpPaymentMod.MOD_ID);
     public static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZERS =
             DeferredRegister.create(Registries.RECIPE_SERIALIZER, WaystoneXpPaymentMod.MOD_ID);
+    public static final DeferredRegister<MenuType<?>> MENUS =
+            DeferredRegister.create(Registries.MENU, WaystoneXpPaymentMod.MOD_ID);
 
     public static final DeferredBlock<XpPaymentTankBlock> XP_PAYMENT_TANK = BLOCKS.register("xp_payment_tank",
             () -> new XpPaymentTankBlock(BlockBehaviour.Properties.of()
@@ -59,6 +64,11 @@ public final class XppRegistry {
     public static final Supplier<XpFluidRecipeSerializer> XP_FLUID_RECIPE_SERIALIZER =
             RECIPE_SERIALIZERS.register("xp_fluid", XpFluidRecipeSerializer::new);
 
+    /** No extra open-screen data is needed: the tank position arrives with the state payload. */
+    public static final Supplier<MenuType<XpPaymentTankMenu>> XP_PAYMENT_TANK_MENU =
+            MENUS.register("xp_payment_tank",
+                    () -> new MenuType<>(XpPaymentTankMenu::new, FeatureFlags.VANILLA_SET));
+
     private XppRegistry() {
     }
 
@@ -68,6 +78,7 @@ public final class XppRegistry {
         BLOCK_ENTITY_TYPES.register(modEventBus);
         RECIPE_TYPES.register(modEventBus);
         RECIPE_SERIALIZERS.register(modEventBus);
+        MENUS.register(modEventBus);
     }
 
     public static ResourceLocation id(String path) {

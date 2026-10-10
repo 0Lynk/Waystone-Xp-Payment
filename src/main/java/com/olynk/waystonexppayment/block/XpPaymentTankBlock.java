@@ -1,13 +1,19 @@
 package com.olynk.waystonexppayment.block;
 
 import com.mojang.serialization.MapCodec;
+import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
+import com.olynk.waystonexppayment.menu.XpPaymentTankMenu;
+import com.olynk.waystonexppayment.net.XppStatePayload;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -67,7 +73,18 @@ public class XpPaymentTankBlock extends BaseEntityBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
                                                BlockHitResult hitResult) {
-        // No GUI yet: the access list is managed with /xpp commands until the screen lands.
-        return InteractionResult.PASS;
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+        if (player instanceof ServerPlayer serverPlayer
+                && level.getBlockEntity(pos) instanceof XpPaymentTankBlockEntity tank) {
+            // The open-screen packet carries no extra data: the position travels with the state payload below,
+            // which is also what makes the screen work after a server-side /reload without re-opening.
+            serverPlayer.openMenu(new SimpleMenuProvider(
+                    (windowId, inventory, p) -> new XpPaymentTankMenu(windowId, inventory),
+                    Component.translatable("block.waystone_xp_payment.xp_payment_tank")));
+            XppStatePayload.sendTo(serverPlayer, pos, tank, TeamResolvers.get().teamsOf(serverPlayer));
+        }
+        return InteractionResult.SUCCESS;
     }
 }

@@ -1,5 +1,7 @@
 package com.olynk.waystonexppayment.net;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
@@ -15,9 +17,12 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 /**
  * Server side of the tank screen.
  *
- * <p>Every request is revalidated here (block entity at that position, op level) and answered with a fresh
- * state snapshot, so the client is never trusted for access control. Identity is equally untrusted: the client
- * may only add itself as a player and only its own teams, whatever UUID it puts on the wire.
+ * <p>Every request is revalidated here (block entity at that position, owner, target identity) and answered with
+ * a fresh state snapshot, so the client is never trusted for access control. Identity is equally untrusted: a
+ * client may propose any UUID, but the server accepts one only if it is an online player or a team the team mod
+ * knows. Editing requires the tank's owner, a player in the owner's team, or an operator - the client shows the
+ * same rule as a read-only screen, and a refused request still gets a snapshot back so the screen corrects
+ * itself instead of keeping an optimistic edit.
  */
 public final class XppServerHandler {
 
@@ -33,9 +38,12 @@ public final class XppServerHandler {
             if (!(player.serverLevel().getBlockEntity(pos) instanceof XpPaymentTankBlockEntity tank)) {
                 return;
             }
-            if (!player.hasPermissions(2)) {
-                player.displayClientMessage(
-                        Component.translatable("commands.waystone_xp_payment.no_permission"), false);
+            // Owner check before anything else: the answer is a snapshot either way, so a refused client still
+            // ends up with the truth on screen instead of whatever it had optimistically drawn. Operators stay
+            // allowed as well - the op path is the admin escape hatch for a tank whose owner is gone, and the
+            // two rights are independent, so the gate has to accept either one.
+            if (!tank.canEdit(player) && !player.hasPermissions(2)) {
+                deny(tank, player, payload, "not the owner or in the owner's team");
                 return;
             }
             apply(tank, player, payload);
@@ -43,56 +51,103 @@ public final class XppServerHandler {
         });
     }
 
+    /** Refusal path: log, tell the player why, and push the authoritative state back to their screen. */
+    private static void deny(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload,
+                             String reason) {
+        log(tank, player, "refused " + payload.action() + ": " + reason, payload.target(), payload.label());
+        player.displayClientMessage(Component.translatable("access.no_permission"), false);
+        XppStatePayload.sendTo(player, payload.pos(), tank, TeamResolvers.get().teamsOf(player));
+    }
+
     private static void apply(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
-        switch (payload.action()) {
-            case SET_MODE -> tank.access().setWhitelist(!"blacklist".equalsIgnoreCase(payload.label()));
-            case ADD_PLAYER -> addSelf(tank, player, payload);
+        // The owner check protects every action, REFRESH included: a snapshot of a tank you may not edit is
+        // still the owner's business, and one gate in one place cannot be forgotten in a later branch.
+        boolean changed = switch (payload.action()) {
+            case SET_MODE -> setMode(tank, payload);
+            case ADD_PLAYER -> addPlayer(tank, player, payload);
             case REMOVE_PLAYER -> removePlayer(tank, player, payload);
-            case ADD_TEAM -> addOwnTeam(tank, player, payload);
+            case ADD_TEAM -> addTeam(tank, player, payload);
             case REMOVE_TEAM -> removeTeam(tank, player, payload);
             case REFRESH -> {
                 // nothing to change; the caller only wants the fresh snapshot below
+                yield false;
             }
+        };
+        if (!changed) {
+            return;
+        }
+        // The first successful edit claims an unclaimed tank, so a tank placed before this model existed (or by
+        // something that is not a player) ends up with an owner the moment somebody configures it.
+        if (tank.ownerId() == null) {
+            String name = player.getGameProfile().getName();
+            tank.setOwner(player.getUUID(), name);
+            WaystoneXpPaymentMod.LOGGER.info("Tank {} claimed by {} [uuid={}]",
+                    tank.getBlockPos().toShortString(), name, player.getUUID());
+            player.displayClientMessage(Component.translatable("access.claimed", name), false);
         }
         tank.setChanged();
     }
 
+    /** Flips the whitelist flag; true only when the mode actually changed, so a no-op does not claim a tank. */
+    private static boolean setMode(XpPaymentTankBlockEntity tank, XppAccessPayload payload) {
+        boolean whitelist = !"blacklist".equalsIgnoreCase(payload.label());
+        if (tank.access().isWhitelist() == whitelist) {
+            return false;
+        }
+        tank.access().setWhitelist(whitelist);
+        return true;
+    }
+
     /**
-     * Only the sender's own game-profile UUID may be added by a client. The label is deliberately ignored: it
-     * is free text from an untrusted side and must never become an identity.
+     * Only currently online players may be added.     *
+     * <p>The UUID comes from the client, so it is checked against the server's own list rather than trusted: any
+     * id that is not an online player here would be an unverifiable identity stored forever in the world save.
      */
-    private static void addSelf(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
+    private static boolean addPlayer(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
         UUID target = payload.target();
-        if (!player.getUUID().equals(target)) {
-            log(tank, player, "refused ADD_PLAYER for a UUID that is not the sender's", target, payload.label());
-            return;
+        if (target == null || XppAccessPayload.NO_TARGET.equals(target)
+                || !onlinePlayers(player).contains(target)) {
+            log(tank, player, "refused ADD_PLAYER for a UUID that is not online", target, payload.label());
+            return false;
         }
         boolean added = tank.access().addPlayer(target);
         log(tank, player, added ? "added player" : "player already listed", target, payload.label());
+        return added;
     }
 
-    /** Only a team the sender is currently in may be added. */
-    private static void addOwnTeam(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
+    /** Only a team the team mod actually knows may be added. Membership is not required (see the javadoc above). */
+    private static boolean addTeam(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
         UUID target = payload.target();
-        TeamResolver.TeamInfo ownTeam = null;
-        for (TeamResolver.TeamInfo team : TeamResolvers.get().teamsOf(player)) {
-            if (team.id().equals(target)) {
-                ownTeam = team;
-                break;
-            }
-        }
-        if (ownTeam == null) {
-            log(tank, player, "refused ADD_TEAM for a team the sender is not in", target, payload.label());
-            return;
+        if (target == null || XppAccessPayload.NO_TARGET.equals(target)
+                || !allTeamIds().contains(target)) {
+            log(tank, player, "refused ADD_TEAM for an unknown team", target, payload.label());
+            return false;
         }
         boolean added = tank.access().addTeam(target);
-        log(tank, player, added ? "added team " + ownTeam.name() : "team already listed", target, payload.label());
+        log(tank, player, added ? "added team" : "team already listed", target, payload.label());
+        return added;
     }
 
-    private static void removePlayer(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
+    private static Set<UUID> onlinePlayers(ServerPlayer viewer) {
+        Set<UUID> online = new HashSet<>();
+        for (ServerPlayer other : viewer.server.getPlayerList().getPlayers()) {
+            online.add(other.getUUID());
+        }
+        return online;
+    }
+
+    private static Set<UUID> allTeamIds() {
+        Set<UUID> teams = new HashSet<>();
+        for (TeamResolver.TeamInfo team : TeamResolvers.get().allTeams()) {
+            teams.add(team.id());
+        }
+        return teams;
+    }
+
+    private static boolean removePlayer(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
         UUID target = payload.target();
         if (target == null || XppAccessPayload.NO_TARGET.equals(target)) {
-            return;
+            return false;
         }
         boolean removedById = tank.access().removePlayer(target);
         // A world saved before the UUID model holds this identity as a name only, and the client cannot know the
@@ -100,15 +155,17 @@ public final class XppServerHandler {
         boolean removedByName = tank.access().removePlayer(payload.label());
         log(tank, player, removedById || removedByName ? "removed player" : "no player entry matched",
                 target, payload.label());
+        return removedById || removedByName;
     }
 
-    private static void removeTeam(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
+    private static boolean removeTeam(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
         UUID target = payload.target();
         String label = payload.label();
         boolean removedById = target != null && !XppAccessPayload.NO_TARGET.equals(target)
                 && tank.access().removeTeam(target);
         boolean removedByName = !label.isBlank() && tank.access().removeTeam(label);
         log(tank, player, removedById || removedByName ? "removed team" : "no team entry matched", target, label);
+        return removedById || removedByName;
     }
 
     private static void log(XpPaymentTankBlockEntity tank, ServerPlayer player, String what, UUID target,

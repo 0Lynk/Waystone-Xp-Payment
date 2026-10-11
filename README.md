@@ -36,10 +36,21 @@ Access control (who may draw from the pool) is a whitelist or blacklist of playe
 Teams installed a tank can grant or revoke a whole team at once; without it, team entries are simply
 unavailable and players are listed individually.
 
-- In-game: right-click a tank to open its screen. The access list is one clickable list; players and teams are
-  interleaved and told apart by colour (`[P]` rows blue, `[T]` rows amber). `+ Add me` adds you, `+ Add teams`
-  adds every team you are currently in, `×` on a row removes that entry, and the mode button switches between
-  whitelist and blacklist. Hovering a row shows the full UUID.
+**Who may edit the access list** is a separate question, and it is answered by the tank's owner: the player who
+placed it. Only the owner, and any player sharing an FTB team with the owner, may change the list. Anybody else
+opens the same screen in read-only mode: the rows are still readable, but the mode switch and the add/remove
+controls are gone and the list says whose tank it is. A tank that predates this rule (or was placed by
+something that is not a player) has no owner yet: it stays editable by anyone until the first successful edit,
+which claims it for whoever made it. `/waystonexppayment access ...` keeps working for operators (op level 2)
+regardless of ownership.
+
+- In-game: right-click a tank to open its screen. `+ Add me` adds you, `+ Add teams` adds every team you are
+  currently in, `×` on a row removes that entry, and the mode button switches between whitelist and blacklist.
+  To add somebody else, click the filter box and type: the list becomes candidates — online players (blue) and
+  teams (amber) — and clicking a candidate adds it. Typing only filters what the client was given; the names
+  never reach the server, so a candidate row is the only way to add an identity other than your own. `↑`/`↓`
+  move the keyboard highlight, `Enter` adds the highlighted candidate, `Esc` clears the filter first and only
+  closes the screen on a second press. Hovering a row shows the full UUID.
 - Operators, or a console: `/waystonexppayment info` and `/waystonexppayment access ...` while looking at a
   tank (op level 2).
 - Config and datapack/KubeJS declarations, see below.

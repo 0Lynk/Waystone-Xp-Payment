@@ -1,6 +1,7 @@
 package com.olynk.waystonexppayment.net;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -11,6 +12,7 @@ import javax.annotation.Nullable;
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.auth.AccessList;
 import com.olynk.waystonexppayment.auth.TeamResolver;
+import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
 
@@ -25,9 +27,16 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/** Server -> client snapshot of everything the tank screen shows. */
+/**
+ * Server -> client snapshot of everything the tank screen shows.
+ *
+ * <p>{@code candidatesPlayers} / {@code candidatesTeams} are the picker source: the server decides what may be
+ * added at all (online players, existing teams), and the screen only filters that list locally. {@code canEdit}
+ * is the owner check the screen renders as read-only mode; the server re-checks it on every request anyway.
+ */
 public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int poolXp, int mbPerXp,
-                              boolean whitelist, List<Entry> entries, List<Entry> ownTeams)
+                              boolean whitelist, boolean canEdit, String ownerName, List<Entry> candidatesPlayers,
+                              List<Entry> candidatesTeams, List<Entry> entries, List<Entry> ownTeams)
         implements CustomPacketPayload {
 
     /**
@@ -56,6 +65,10 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
                 buffer.writeVarInt(payload.poolXp());
                 buffer.writeVarInt(payload.mbPerXp());
                 buffer.writeBoolean(payload.whitelist());
+                buffer.writeBoolean(payload.canEdit());
+                buffer.writeUtf(payload.ownerName(), 64);
+                writeEntries(buffer, payload.candidatesPlayers());
+                writeEntries(buffer, payload.candidatesTeams());
                 writeEntries(buffer, payload.entries());
                 writeEntries(buffer, payload.ownTeams());
             },
@@ -66,6 +79,10 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
                     buffer.readVarInt(),
                     buffer.readVarInt(),
                     buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readUtf(64),
+                    readEntries(buffer),
+                    readEntries(buffer),
                     readEntries(buffer),
                     readEntries(buffer)));
 
@@ -107,7 +124,37 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
         }
 
         PacketDistributor.sendToPlayer(player, new XppStatePayload(pos, tank.getTank().getFluid(),
-                tank.getTank().getCapacity(), tank.poolXp(), tank.mbPerXp(), access.isWhitelist(), entries, own));
+                tank.getTank().getCapacity(), tank.poolXp(), tank.mbPerXp(), access.isWhitelist(),
+                tank.canEdit(player), tank.ownerName(), candidatePlayers(player), candidateTeams(),
+                entries, own));
+    }
+
+    /**
+     * Everyone currently online, as picker rows.
+     *
+     * <p>The server decides who may be added, the client only filters the list, so this must not be names read
+     * back from the wire. Sorted by name because the wire order is the login order, which reads as random.
+     */
+    private static List<Entry> candidatePlayers(ServerPlayer viewer) {
+        List<Entry> candidates = new ArrayList<>();
+        Set<UUID> seen = new HashSet<>();
+        for (ServerPlayer online : viewer.server.getPlayerList().getPlayers()) {
+            UUID id = online.getUUID();
+            if (seen.add(id)) {
+                candidates.add(new Entry(id, online.getGameProfile().getName(), false, false));
+            }
+        }
+        candidates.sort(Comparator.comparing(entry -> entry.label(), String.CASE_INSENSITIVE_ORDER));
+        return candidates;
+    }
+
+    /** Every team the team mod knows, as picker rows. Empty without FTB Teams. */
+    private static List<Entry> candidateTeams() {
+        List<Entry> candidates = new ArrayList<>();
+        for (TeamResolver.TeamInfo team : TeamResolvers.get().allTeams()) {
+            candidates.add(new Entry(team.id(), team.name(), true, false));
+        }
+        return candidates;
     }
 
     /**

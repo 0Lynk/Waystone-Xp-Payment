@@ -4,18 +4,25 @@ import javax.annotation.Nullable;
 
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.auth.AccessList;
+import com.olynk.waystonexppayment.auth.TeamResolver;
+import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.client.XppClientTankRegistry;
 import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.fluid.FluidRates;
 import com.olynk.waystonexppayment.registry.XppRegistry;
 
+import java.util.List;
+import java.util.UUID;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -36,8 +43,16 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     /** Network-only key holding the server-computed XP value of the pool (never written to world data). */
     private static final String SYNC_POOL_XP = "XppPoolXp";
 
+    /** Owner of the tank: the player who placed it. Null until the tank has been claimed. */
+    private static final String OWNER_ID = "XppOwner";
+    /** Cached owner name, display only - {@link #ownerId} is what authorisation matches on. */
+    private static final String OWNER_NAME = "XppOwnerName";
+
     private final FluidTank tank;
     private AccessList access = new AccessList();
+    @Nullable
+    private UUID ownerId;
+    private String ownerName = "";
     private int syncedPoolXp = -1;
     private int cachedPoolXp;
     private boolean hasSyncedData;
@@ -101,6 +116,64 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         return access;
     }
 
+    /** Placing player, or null while the tank has never been claimed. */
+    @Nullable
+    public UUID ownerId() {
+        return ownerId;
+    }
+
+    /**
+     * Display name of the owner, or an empty string while the tank is unclaimed.
+     *
+     * <p>Never used for authorisation: a name can be changed, a UUID cannot.
+     */
+    public String ownerName() {
+        return ownerName;
+    }
+
+    /** Records the owner. First claim wins; later calls overwrite on purpose (an admin taking over a tank). */
+    public void setOwner(@Nullable UUID ownerId, String ownerName) {
+        this.ownerId = ownerId;
+        this.ownerName = ownerName == null ? "" : ownerName;
+        setChanged();
+    }
+
+    /** True while no player owns this tank yet - the legacy and freshly-filled-with-/setblock case. */
+    public boolean isUnowned() {
+        return ownerId == null;
+    }
+
+    /**
+     * Whether this player may change the tank's access list.
+     *
+     * <p>Owner, or a player who shares any team with the owner. An unowned tank is open to everyone, because
+     * there is no owner to deny and the first successful edit claims it (see XppServerHandler). Nobody else,
+     * including operators, passes here - the op command path has its own permission check.
+     */
+    public boolean canEdit(Player player) {
+        UUID owner = ownerId;
+        if (owner == null) {
+            return true;
+        }
+        UUID editor = player.getUUID();
+        if (editor.equals(owner)) {
+            return true;
+        }
+        TeamResolver resolver = TeamResolvers.get();
+        List<TeamResolver.TeamInfo> ownerTeams = resolver.teamsOf(owner);
+        if (ownerTeams.isEmpty()) {
+            return false;
+        }
+        for (TeamResolver.TeamInfo team : resolver.teamsOf(editor)) {
+            for (TeamResolver.TeamInfo ownerTeam : ownerTeams) {
+                if (team.id().equals(ownerTeam.id())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /** XP value of the whole tank, at the rates currently configured for its fluid. */
     public int poolXp() {
         return FluidRates.xpValue(tank.getFluid());
@@ -154,6 +227,12 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         // writable with vanilla /data commands (verified on a live server).
         tank.writeToNBT(registries, tag);
         tag.put("access", access.save());
+        if (ownerId != null) {
+            tag.putIntArray(OWNER_ID, UUIDUtil.uuidToIntArray(ownerId));
+        }
+        if (!ownerName.isEmpty()) {
+            tag.putString(OWNER_NAME, ownerName);
+        }
     }
 
     @Override
@@ -163,6 +242,11 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         if (tag.contains("access")) {
             access = AccessList.load(tag.getCompound("access"));
         }
+        // A tag without int-array payload decodes as null rather than throwing, which is what an old world
+        // (no owner keys at all) and a hand-edited tag both look like - both mean "unclaimed".
+        int[] owner = tag.getIntArray(OWNER_ID);
+        ownerId = owner.length == 4 ? UUIDUtil.uuidFromIntArray(owner) : null;
+        ownerName = tag.getString(OWNER_NAME);
         // Present only in the network sync tag (getUpdateTag), never in saved world data.
         syncedPoolXp = tag.contains(SYNC_POOL_XP) ? Math.max(0, tag.getInt(SYNC_POOL_XP)) : -1;
         cachedPoolXp = FluidRates.xpValue(tank.getFluid());

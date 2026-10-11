@@ -274,7 +274,10 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
         // Adding "me" is only meaningful while this player is not listed yet; a greyed-out button also answers
         // "am I on the list?" without the player having to read the whole list.
         addMeButton.active = !isSelfListed();
-        addTeamsButton.active = !state.ownTeams().isEmpty();
+        // init() runs from the open-screen packet, which arrives before the state packet: on the first init the
+        // snapshot is still null, and reading it here threw inside the packet handler - which NeoForge reports
+        // as a protocol error and which disconnects the player, single player included.
+        addTeamsButton.active = state != null && !state.ownTeams().isEmpty();
     }
 
     private Component modeLabel() {

@@ -46,15 +46,18 @@ public final class XppClientRequirements {
         Optional<Waystone> fromWaystone = context.getFromWaystone();
         // Mirror the server's choice of payer: a usable tank under the source wins, otherwise the destination's.
         // "Usable" means not empty, because an empty tank is no payer on the server either.
-        TankRef payer = payerAt(tankBelow(level, fromWaystone.orElse(null)));
+        TankRef sourceTank = tankBelow(level, fromWaystone.orElse(null));
+        TankRef payer = payerAt(sourceTank);
+        TankRef targetTank = payer == null ? tankBelow(level, context.getTargetWaystone()) : null;
         if (payer == null) {
-            payer = payerAt(tankBelow(level, context.getTargetWaystone()));
+            payer = payerAt(targetTank);
         }
         if (payer == null) {
-            // Logged as well as the positive case: "the button is grey" is answered differently depending on
-            // whether this hook ran and found nothing, or never ran at all.
-            WaystoneXpPaymentMod.LOGGER.info("[client] no payment tank for this entry (from={}, target={})",
-                    describe(fromWaystone.orElse(null)), describe(context.getTargetWaystone()));
+            // "Grey" has three different causes and they lead to different conclusions: no tank was ever seen
+            // here, a tank was seen but its chunk is elsewhere (contents unknown), or a loaded tank is empty.
+            WaystoneXpPaymentMod.LOGGER.info("[client] no payment tank for this entry (from={}, target={}): "
+                            + "under source={}, under target={}", describe(fromWaystone.orElse(null)),
+                    describe(context.getTargetWaystone()), describeTank(sourceTank), describeTank(targetTank));
             return original;
         }
 
@@ -118,5 +121,16 @@ public final class XppClientRequirements {
         return waystone == null
                 ? "none"
                 : waystone.getDimension().location() + "@" + waystone.getPos().toShortString();
+    }
+
+    /** What this client knows about one candidate tank, for the log: nothing, position only, or a real tank. */
+    private static String describeTank(@Nullable TankRef ref) {
+        if (ref == null) {
+            return "no tank";
+        }
+        return ref.loaded() == null
+                ? "tank not loaded here"
+                : (ref.loaded().getTank().isEmpty() ? "empty tank" : "usable tank")
+                        + " at " + ref.loaded().getBlockPos().toShortString();
     }
 }

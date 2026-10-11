@@ -36,8 +36,10 @@ Access control (who may draw from the pool) is a whitelist or blacklist of playe
 Teams installed a tank can grant or revoke a whole team at once; without it, team entries are simply
 unavailable and players are listed individually.
 
-- In-game: right-click a tank to open its screen (mode toggle, "add me" / "remove me", and a toggle per team
-  you are in).
+- In-game: right-click a tank to open its screen. The access list is one clickable list; players and teams are
+  interleaved and told apart by colour (`[P]` rows blue, `[T]` rows amber). `+ Add me` adds you, `+ Add teams`
+  adds every team you are currently in, `×` on a row removes that entry, and the mode button switches between
+  whitelist and blacklist. Hovering a row shows the full UUID.
 - Operators, or a console: `/waystonexppayment info` and `/waystonexppayment access ...` while looking at a
   tank (op level 2).
 - Config and datapack/KubeJS declarations, see below.

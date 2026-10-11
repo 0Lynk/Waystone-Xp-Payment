@@ -11,6 +11,7 @@
   "access.mode.blacklist": "黑名单",
   "access.mode.unknown": "…",
   "access.add_me": "+ 添加我",
+  "access.add_team": "+ 添加我的队伍",
   "access.pool_xp": "%s 经验 · %s mB/经验",
   "access.list_header": "访问列表 (%s)",
   "access.list.empty": "暂无条目 — 点 + 添加我",

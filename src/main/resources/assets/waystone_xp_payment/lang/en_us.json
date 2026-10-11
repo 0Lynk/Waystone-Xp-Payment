@@ -11,6 +11,7 @@
   "access.mode.blacklist": "blacklist",
   "access.mode.unknown": "...",
   "access.add_me": "+ Add me",
+  "access.add_team": "+ Add teams",
   "access.pool_xp": "%s XP \u00b7 %s mB/XP",
   "access.list_header": "Access list (%s)",
   "access.list.empty": "No entries \u2014 click + Add me",

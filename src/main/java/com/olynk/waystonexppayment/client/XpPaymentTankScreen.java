@@ -71,6 +71,7 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
     private XppStatePayload state;
     private Button modeButton;
     private Button addMeButton;
+    private Button addTeamsButton;
     private int scrollOffset;
     private int hoveredRow = -1;
     private long hoveredSince;
@@ -90,13 +91,17 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
         this.modeButton = addRenderableWidget(new Button.Builder(modeLabel(),
                 button -> send(XppAccessPayload.Action.SET_MODE, null,
                         state != null && state.whitelist() ? "blacklist" : "whitelist"))
-                .pos(leftPos + 8, topPos + 54).size(96, 20).build());
+                .pos(leftPos + 8, topPos + 54).size(84, 20).build());
         this.addMeButton = addRenderableWidget(new Button.Builder(
                 Component.translatable("access.add_me"), button -> addSelf())
-                .pos(leftPos + 112, topPos + 54).size(72, 20).build());
+                .pos(leftPos + 100, topPos + 54).size(72, 20).build());
+        this.addTeamsButton = addRenderableWidget(new Button.Builder(
+                Component.translatable("access.add_team"), button -> addOwnTeams())
+                .pos(leftPos + 180, topPos + 54).size(72, 20).build());
         headerButtons.clear();
         headerButtons.add(modeButton);
         headerButtons.add(addMeButton);
+        headerButtons.add(addTeamsButton);
         refreshWidgets();
     }
 
@@ -117,6 +122,7 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
         // Adding "me" is only meaningful while this player is not listed yet; a greyed-out button also answers
         // "am I on the list?" without the player having to read the whole list.
         addMeButton.active = state != null && !isSelfListed(state);
+        addTeamsButton.active = state != null && hasTeamToAdd(state);
         for (Button button : headerButtons) {
             button.visible = state != null;
         }
@@ -162,6 +168,49 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
             return;
         }
         send(XppAccessPayload.Action.ADD_PLAYER, self, minecraft.player.getGameProfile().getName());
+    }
+
+    /**
+     * Adds every team this player is currently in that is not on the list yet.
+     *
+     * <p>The server accepts a team only from one of its members, so this cannot be used to grant a team the
+     * player has nothing to do with; it only saves them from adding three teams one row at a time.
+     */
+    private void addOwnTeams() {
+        if (state == null) {
+            return;
+        }
+        for (XppStatePayload.Entry team : state.ownTeams()) {
+            if (!listedAsTeam(state, team.id())) {
+                send(XppAccessPayload.Action.ADD_TEAM, team.id(), team.label());
+            }
+        }
+    }
+
+    /** True while at least one of the player's teams can still be added. */
+    private static boolean hasTeamToAdd(XppStatePayload payload) {
+        for (XppStatePayload.Entry team : payload.ownTeams()) {
+            if (!listedAsTeam(payload, team.id())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * An id-less entry counts as listed: an old name-only row cannot be matched against, and a team without an
+     * id cannot be addressed by the payload at all.
+     */
+    private static boolean listedAsTeam(XppStatePayload payload, @Nullable UUID id) {
+        if (id == null) {
+            return true;
+        }
+        for (XppStatePayload.Entry entry : payload.entries()) {
+            if (entry.team() && id.equals(entry.id())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void send(XppAccessPayload.Action action, @Nullable UUID target, String label) {

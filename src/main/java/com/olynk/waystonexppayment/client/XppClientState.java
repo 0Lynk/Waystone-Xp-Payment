@@ -1,5 +1,6 @@
 package com.olynk.waystonexppayment.client;
 
+import com.olynk.waystonexppayment.net.XppMembersPayload;
 import com.olynk.waystonexppayment.net.XppStatePayload;
 
 import net.minecraft.client.Minecraft;
@@ -16,6 +17,18 @@ public final class XppClientState {
         latest = payload;
         if (Minecraft.getInstance().screen instanceof XpPaymentTankScreen screen) {
             screen.onState(payload);
+        }
+    }
+
+    /**
+     * Delivers a member answer to the open screen.
+     *
+     * <p>Not cached like the snapshot: membership is only ever displayed while the member panel is open, and a
+     * stored copy would go stale in a way nothing would notice.
+     */
+    public static void acceptMembers(XppMembersPayload payload) {
+        if (Minecraft.getInstance().screen instanceof XpPaymentTankScreen screen) {
+            screen.onMembers(payload);
         }
     }
 

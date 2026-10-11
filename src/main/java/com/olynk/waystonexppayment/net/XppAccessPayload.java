@@ -14,13 +14,17 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Client -> server request to change a tank's access list (and to re-request its state).
+ * Client -> server request to change a tank's access list (and to re-request its state or its team members).
  *
  * <p>Identity travels as a {@link UUID} and nothing else: {@code label} is a human-readable name carried only
- * so the server log says which entry changed. The server never parses identity out of it.
+ * so the server log says which entry changed - and, for {@link Action#REQUEST_MEMBERS}, so the server can
+ * answer with the name it knows. The server never parses identity out of it.
+ *
+ * <p>{@code requestId} is echoed back by {@link XppMembersPayload}: that is the only channel the answer can
+ * travel on, and without it a reply to an earlier request cannot be told apart from this one's.
  */
-public record XppAccessPayload(BlockPos pos, Action action, @Nullable UUID target, String label)
-        implements CustomPacketPayload {
+public record XppAccessPayload(BlockPos pos, Action action, @Nullable UUID target, String label,
+                               long requestId) implements CustomPacketPayload {
 
     public enum Action {
         SET_MODE,
@@ -28,7 +32,8 @@ public record XppAccessPayload(BlockPos pos, Action action, @Nullable UUID targe
         REMOVE_PLAYER,
         ADD_TEAM,
         REMOVE_TEAM,
-        REFRESH
+        REFRESH,
+        REQUEST_MEMBERS
     }
 
     /**
@@ -50,12 +55,13 @@ public record XppAccessPayload(BlockPos pos, Action action, @Nullable UUID targe
                     UUIDUtil.STREAM_CODEC.encode(buffer, payload.target());
                 }
                 buffer.writeUtf(payload.label(), 64);
+                buffer.writeLong(payload.requestId());
             },
             buffer -> {
                 BlockPos pos = buffer.readBlockPos();
                 Action action = buffer.readEnum(Action.class);
                 UUID target = buffer.readBoolean() ? UUIDUtil.STREAM_CODEC.decode(buffer) : NO_TARGET;
-                return new XppAccessPayload(pos, action, target, buffer.readUtf(64));
+                return new XppAccessPayload(pos, action, target, buffer.readUtf(64), buffer.readLong());
             });
 
     @Override

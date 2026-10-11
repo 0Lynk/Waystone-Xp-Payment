@@ -691,7 +691,9 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
             if (inInputArea(localX, localY)) {
                 // Clicking anywhere on the frame, padding included, focuses the box: the drawn frame is the
                 // control, and a 9px-tall borderless EditBox is a hard target on its own.
-                searchBox.setFocused(true);
+                // Focus goes through the screen, not the widget: ContainerEventHandler.charTyped only forwards
+                // to getFocused(), so a widget-level flag alone would drop every typed character.
+                setFocused(searchBox);
                 return true;
             }
             int index = rowAt(localX, localY);
@@ -715,7 +717,7 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
                 clearSearch();
                 return true;
             }
-            searchBox.setFocused(false);
+            setFocused(null);
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
@@ -805,7 +807,7 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
     /** Leaves the picker: clears the query, drops focus and shows the access list again. */
     private void clearSearch() {
         searchBox.setValue("");
-        searchBox.setFocused(false);
+        setFocused(null);
         lastQuery = "";
         highlightRow = -1;
         scrollOffset = 0;

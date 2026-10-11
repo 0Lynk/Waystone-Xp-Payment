@@ -1,5 +1,7 @@
 package com.olynk.waystonexppayment.client;
 
+import javax.annotation.Nullable;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -34,10 +36,18 @@ class AccessButton extends Button {
     private static final int ACCENT_DISABLED = 0x40FFFFFF;
 
     private final int accent;
+    /** Drawn instead of the message when set; the message stays as the narration a screen reader reads out. */
+    @Nullable
+    private final String glyph;
 
     AccessButton(Component message, int accent, Button.OnPress onPress) {
+        this(message, accent, onPress, null);
+    }
+
+    AccessButton(Component message, int accent, Button.OnPress onPress, @Nullable String glyph) {
         super(0, 0, 0, 0, message, onPress, DEFAULT_NARRATION);
         this.accent = accent;
+        this.glyph = glyph;
     }
 
     @Override
@@ -69,8 +79,13 @@ class AccessButton extends Button {
         // widget/button sprite first, which would repaint the grey button over the body drawn above and leave
         // the screen with two button styles again. Only the text placement is copied from it.
         Font font = Minecraft.getInstance().font;
-        guiGraphics.drawCenteredString(font, getMessage(), x + 3 + (width - 3) / 2, y + (height - 8) / 2,
-                getFGColor());
+        int textX = x + 3 + (width - 3) / 2;
+        int textY = y + (height - 8) / 2;
+        if (glyph != null) {
+            guiGraphics.drawCenteredString(font, glyph, textX, textY, getFGColor());
+        } else {
+            guiGraphics.drawCenteredString(font, getMessage(), textX, textY, getFGColor());
+        }
 
         guiGraphics.fill(x, y, x + width, y + 1, border);
         guiGraphics.fill(x, y + height - 1, x + width, y + height, border);

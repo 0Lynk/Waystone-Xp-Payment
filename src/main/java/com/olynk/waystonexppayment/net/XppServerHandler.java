@@ -1,6 +1,8 @@
 package com.olynk.waystonexppayment.net;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,13 +44,51 @@ public final class XppServerHandler {
             // ends up with the truth on screen instead of whatever it had optimistically drawn. Operators stay
             // allowed as well - the op path is the admin escape hatch for a tank whose owner is gone, and the
             // two rights are independent, so the gate has to accept either one.
-            if (!tank.canEdit(player) && !player.hasPermissions(2)) {
+            boolean permitted = tank.canEdit(player) || player.hasPermissions(2);
+            if (payload.action() == XppAccessPayload.Action.REQUEST_MEMBERS) {
+                answerMembers(tank, player, payload, permitted);
+                return;
+            }
+            if (!permitted) {
                 deny(tank, player, payload, "not the owner or in the owner's team");
                 return;
             }
             apply(tank, player, payload);
             XppStatePayload.sendTo(player, pos, tank, TeamResolvers.get().teamsOf(player));
         });
+    }
+
+    /**
+     * Answers a member request, including when the request was refused.
+     *
+     * <p>The refusal has to send the member packet as well, not just the tank snapshot: the panel shows
+     * neither the list nor the status bar's list segment while it waits, so a snapshot alone would leave it
+     * waiting for a reply that is never coming.
+     */
+    private static void answerMembers(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload,
+                                      boolean permitted) {
+        UUID teamId = payload.target();
+        if (!permitted) {
+            log(tank, player, "refused REQUEST_MEMBERS: not the owner or in the owner's team",
+                    teamId, payload.label());
+            XppMembersPayload.sendTo(player, payload.pos(), teamId, payload.label(),
+                    XppMembersStatus.NOT_OWNER, payload.requestId(), List.of());
+            XppStatePayload.sendTo(player, payload.pos(), tank, TeamResolvers.get().teamsOf(player));
+            return;
+        }
+        // A request that names no team cannot be looked up; answering "no such team" keeps the panel from
+        // hanging on a malformed request, which is the only thing it could usefully do with one anyway.
+        TeamResolver.MembersResult result = teamId == null || XppAccessPayload.NO_TARGET.equals(teamId)
+                ? TeamResolver.MembersResult.unknownTeam()
+                : TeamResolvers.get().membersOf(teamId);
+        log(tank, player, "read " + result.members().size() + " team members (status " + result.status() + ")",
+                teamId, payload.label());
+        List<XppMembersPayload.Member> members = new ArrayList<>(result.members().size());
+        for (TeamResolver.MemberInfo member : result.members()) {
+            members.add(new XppMembersPayload.Member(member.id(), member.name(), member.online()));
+        }
+        XppMembersPayload.sendTo(player, payload.pos(), teamId, payload.label(), result.status(),
+                payload.requestId(), members);
     }
 
     /** Refusal path: log, tell the player why, and push the authoritative state back to their screen. */
@@ -70,6 +110,12 @@ public final class XppServerHandler {
             case REMOVE_TEAM -> removeTeam(tank, player, payload);
             case REFRESH -> {
                 // nothing to change; the caller only wants the fresh snapshot below
+                yield false;
+            }
+            case REQUEST_MEMBERS -> {
+                // Unreachable: handle() answers member requests before this switch, because the answer is a
+                // different payload rather than a change to the tank. Listed so the enum stays exhaustively
+                // covered - a new action must not be able to slip past this switch unnoticed.
                 yield false;
             }
         };

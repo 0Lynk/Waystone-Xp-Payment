@@ -56,6 +56,10 @@ dependencies {
 
 tasks.named('test', Test) {
     useJUnitPlatform()
+    // MixinShadowPolicyTest loads the real target classes (Waystones and the vanilla client ones it inherits
+    // from) to check that every @Shadow member is declared by its target. The NeoForge artifact that carries
+    // the vanilla classes stays on the compile classpath only, so it has to be added here for the test run.
+    classpath += sourceSets.main.compileClasspath
 }
 
 tasks.withType(JavaCompile).configureEach {

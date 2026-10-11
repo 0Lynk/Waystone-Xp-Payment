@@ -13,6 +13,7 @@ import net.blay09.mods.waystones.api.requirement.WarpRequirement;
 import net.blay09.mods.waystones.client.gui.widget.WaystoneButton;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -33,9 +34,6 @@ public class WaystoneButtonClientMixin {
     @Final
     private WarpRequirement warpRequirement;
 
-    @Shadow
-    protected boolean active;
-
     @Inject(method = "renderWidget", at = @At("HEAD"))
     private void xpp$greyOutWhenTheTankCannotPay(GuiGraphics guiGraphics, int mouseX, int mouseY,
                                                  float partialTicks, CallbackInfo callback) {
@@ -44,7 +42,11 @@ public class WaystoneButtonClientMixin {
         }
         Player player = Minecraft.getInstance().player;
         if (player != null && !requirement.canAfford(player)) {
-            this.active = false;
+            // `active` is declared in AbstractWidget, not in WaystoneButton, and @Shadow only resolves members a
+            // class declares itself: shadowing it compiled fine and then failed Mixin APPLY the first time this
+            // button was constructed, which took the whole screen - and the client - down. The field is public,
+            // so reaching it through the supertype is all that is needed.
+            ((AbstractWidget) (Object) this).active = false;
         }
     }
 }

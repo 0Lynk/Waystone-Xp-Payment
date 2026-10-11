@@ -8,11 +8,11 @@ All notable changes to this project are documented here.
 
 - **Mod icon**: `src/main/resources/waystone_xp_payment.png` - the file `META-INF/neoforge.mods.toml` has pointed
   `logoFile` at since the first release but which had never existed. Mod lists and the mod-detail screen show it now.
-  The artwork is the tank block as a flat orthographic cube, drawn over one 16x16 frame of the experience
-  fluid's `experience_still.png` (2x scaled, tiled 2x2, darkened), and it is reproducible:
-  `node tools/make_icon.mjs <output.png>` redraws the 64x64 pixel art and upscales it 4x - no dependencies,
-  because the fluid frame is embedded in the script.
-
+  The artwork is built from the mod's own in-game textures: the 16x16 tank block texture is projected onto the
+  three visible faces of an orthographic cube (front as drawn, top x1.12, right x0.72), sitting on one 16x16 frame
+  of the experience fluid's `experience_still.png` (2x scaled, tiled, dimmed to 0.8). It is reproducible:
+  `node tools/make_icon.mjs <output.png>` rebuilds the 256x256 PNG - no dependencies, because the fluid frame is
+  embedded in the script while the block texture is read from the repository.
 ### Tests
 
 - 55 unit tests, unchanged (the icon is a data-only asset).

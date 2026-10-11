@@ -1,9 +1,52 @@
-# Verification — waystone_xp_payment 0.1.0
+# Verification — waystone_xp_payment
 
 Every claim in `README.md` / `CHANGELOG.md` should be traceable to something below. Commands are the ones
 actually run; the environment caveats that change how a command looks are stated where they matter.
 
-## 1. Build
+**Current release: 0.2.0.** Section 0 below is the record for it; sections 1-4 were written for 0.1.0 and are
+kept as they stand. Where the two disagree on a number (test count, jar size), section 0 wins.
+
+## 0. The 0.2.0 release (2026-10-11)
+
+0.2.0 turned the access screen into an owner-gated, UUID-backed list (row selection + row menu, team member
+panel, filter picker, status line) and fixed three reported client bugs, two of which disconnected the player. `CHANGELOG.md` lists the changes; the release
+round itself is recorded in `docs/变更记录/2026-10-11_v0.2.0发版准备.md`. One user-visible detail worth writing
+down: the row-menu glyph is drawn as three `·` (U+00B7) because `⋯` (U+22EF) is not in the 1.21.1 default font
+atlas.
+
+| step | command | result |
+|---|---|---|
+| full build incl. the unit tests (this is what CI runs) | `gradle build --offline` | **BUILD SUCCESSFUL in 6s** (`6 actionable tasks: 3 executed, 3 up-to-date`) |
+| unit tests | part of the same `gradle build` | **55 tests, 0 failures, 0 errors** (`build/test-results/test/*.xml`): `FluidRateTableTest` 17, `PendingRequestTest` 12, `ContextMenuLayoutTest` 11, `PaymentSplitTest` 8, `XppMembersStatusTest` 6, `MixinShadowPolicyTest` 1 |
+| jar | — | `build/libs/waystone_xp_payment-0.2.0+mc1.21.1.jar`, 155,417 bytes, sha256 `e6012a103bf25096555bcafbbfad4e5399abcaec304692782a5089f0cfbf8118` |
+| version inside the jar | read `META-INF/neoforge.mods.toml` out of that jar | `version = "0.2.0"`, expanded at build time from `mod_version` in `gradle.properties:13` |
+| published asset | GitHub release `v0.2.0` (tag on `5a96493`) | `state=uploaded`, `size=155417`, `digest=sha256:e6012a10…` — byte-identical to the local jar |
+| modpack deployment | the 0.2.0 jar copied into the `mods` folder of a real 1.21.1 pack (Waystones 21.1.45, FTB Teams 2101.1.11) | same sha256 on both sides; **the in-game retest is the pack owner's, not done here** |
+
+### Guards added in 0.2.0
+
+`MixinShadowPolicyTest` walks every `@Mixin(X.class)` in the main source set and asserts that each `@Shadow`
+member is declared by `X` itself. The bug it guards against: `WaystoneButtonClientMixin` shadowed
+`protected boolean active`, which `net.blay09.mods.waystones.client.gui.widget.WaystoneButton` does not declare
+(it comes from `AbstractWidget`), so the mixin still compiled but failed at apply time —
+`InvalidMixinException @Shadow field active was not located in the target class
+net.blay09.mods.waystones.client.gui.widget.WaystoneButton` — and every client that opened the teleport list was
+disconnected. The guard was reverse-tested: putting the illegal shadow back fails it immediately. So that the
+test can load its targets, `build.gradle`'s `test` task now adds `sourceSets.main.compileClasspath`.
+
+### Not verified for 0.2.0 (do not claim otherwise)
+
+- The 0.2.0 access screen as *rendered*: row selection, the `···` row menu, the member panel, the four status-line
+  states and the three-stage `Esc` order were exercised by unit tests and static reading only.
+- The FTB Teams reflective path (`Team.getMembers`, `Team.getOnlineMembers`, `TeamManager.getTeamByID`) was only
+  checked with `javap` against `ftb-teams-neoforge-2101.1.11.jar`; it has never run in a game with FTB Teams
+  loaded.
+- Whether `registrar("2")` (`event/XppModEvents.java:49`) takes part in NeoForge's payload-version handshake is
+  assumed, not measured.
+- Everything in section 3's "Not covered by this smoke test" still stands for 0.2.0: no player teleports, no
+  client, no pipe-filled tank.
+
+## 1. Build (0.1.0)
 
 | step | command | result |
 |---|---|---|
@@ -24,7 +67,7 @@ actually run; the environment caveats that change how a command looks are stated
   machine-local init script (`$GRADLE_USER_HOME/init.d/fix-repos.gradle`, deliberately *not* in this repository).
   The host came back and the canonical `gradle build` (tests included) now runs online.
 
-## 2. Unit tests
+## 2. Unit tests (0.1.0)
 
 | runner | command | result |
 |---|---|---|
@@ -33,7 +76,7 @@ actually run; the environment caveats that change how a command looks are stated
 
 Both test classes are pure logic (no Minecraft types on their paths), which is why they can run either way.
 
-## 3. Dev server smoke test — PASSED (with an explicit list of what it does *not* cover)
+## 3. Dev server smoke test (0.1.0) — PASSED (with an explicit list of what it does *not* cover)
 
 `gradle runServer` boots a dedicated server with the mod (log: `D:\deepseek\.tmp\runserver5.log`,
 `runserver6.log`, `runserver7.log`).

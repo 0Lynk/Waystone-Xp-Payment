@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+### Added
+
+- **Mod icon**: `src/main/resources/waystone_xp_payment.png` - the file `META-INF/neoforge.mods.toml` has pointed
+  `logoFile` at since the first release but which had never existed. Mod lists and the mod-detail screen show it now.
+  The asset is reproducible: `tools/make_icon.mjs` draws 64x64 pixel art in the tank texture's own palette and
+  upscales it 4x - `node tools/make_icon.mjs <output.png>`, no dependencies.
+
+### Tests
+
+- 55 unit tests, unchanged (the icon is a data-only asset).
+
 ## 0.2.0 - 2026-10-11
 
 ### Added

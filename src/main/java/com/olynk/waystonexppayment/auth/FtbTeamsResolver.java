@@ -66,11 +66,17 @@ final class FtbTeamsResolver implements TeamResolver {
 
     @Override
     public List<TeamInfo> teamsOf(Player player) {
+        return teamsOf(player.getUUID());
+    }
+
+    /** Same lookup as {@link #teamsOf(Player)}, by id: the tank owner check has no {@link Player} to hand. */
+    @Override
+    public List<TeamInfo> teamsOf(UUID playerId) {
         try {
             if (!managerLoaded()) {
                 return List.of();
             }
-            Optional<?> team = teamForPlayer(player.getUUID());
+            Optional<?> team = teamForPlayer(playerId);
             if (team.isEmpty()) {
                 return List.of();
             }
@@ -80,7 +86,7 @@ final class FtbTeamsResolver implements TeamResolver {
             }
             return List.of(toInfo(value));
         } catch (ReflectiveOperationException | RuntimeException e) {
-            WaystoneXpPaymentMod.LOGGER.warn("Could not read the player's FTB team, ignoring it", e);
+            WaystoneXpPaymentMod.LOGGER.warn("Could not read the FTB team of player {}, ignoring it", playerId, e);
             return List.of();
         }
     }

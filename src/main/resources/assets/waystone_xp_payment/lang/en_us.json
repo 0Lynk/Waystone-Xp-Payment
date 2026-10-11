@@ -6,6 +6,11 @@
   "commands.waystone_xp_payment.no_permission": "You need operator permissions to change this tank's access list.",
   "commands.waystone_xp_payment.unknown_team": "No team with that name exists.",
   "commands.waystone_xp_payment.unknown_player": "No player with that name has ever joined this server.",
+  "access.no_permission": "Only the tank's owner, or a member of the owner's team, may change its access list.",
+  "access.claimed": "You are now the owner of this tank (%s). Only you and your team may edit it.",
+  "access.readonly": "Read-only \u2014 this tank belongs to %s",
+  "access.owner": "Owner: %s",
+  "access.owner.none": "Owner: unclaimed",
   "access.mode": "Mode: %s",
   "access.mode.whitelist": "whitelist",
   "access.mode.blacklist": "blacklist",
@@ -17,5 +22,11 @@
   "access.list.empty": "No entries \u2014 click + Add me",
   "access.waiting": "Waiting for the server\u2026",
   "access.tooltip.uuid": "%s",
-  "access.tooltip.name": "%s"
+  "access.tooltip.name": "%s",
+  "access.picker.header": "Click to add \u2014 players %s \u00b7 teams %s",
+  "access.picker.hint": "Type to filter\u2026",
+  "access.picker.no_candidates": "Nothing to add \u2014 nobody is online and there are no teams",
+  "access.picker.no_players": "No online player matches",
+  "access.picker.no_teams": "No team matches",
+  "access.picker.no_match": "No candidate matches that filter"
 }

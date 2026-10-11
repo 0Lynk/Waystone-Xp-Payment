@@ -14,6 +14,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -49,6 +50,20 @@ public class XpPaymentTankBlock extends BaseEntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new XpPaymentTankBlockEntity(pos, state);
+    }
+
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (level.isClientSide()) {
+            return;
+        }
+        // The placing player becomes the owner; without a player (a dispenser, /setblock) the tank stays
+        // unclaimed until somebody edits it through the screen.
+        if (placer instanceof ServerPlayer player
+                && level.getBlockEntity(pos) instanceof XpPaymentTankBlockEntity tank) {
+            tank.setOwner(player.getUUID(), player.getGameProfile().getName());
+        }
     }
 
     @Override

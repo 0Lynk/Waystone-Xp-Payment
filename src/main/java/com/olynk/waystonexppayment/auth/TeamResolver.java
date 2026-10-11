@@ -30,6 +30,16 @@ public interface TeamResolver {
     /** Teams the player currently belongs to. Never null. */
     List<TeamInfo> teamsOf(Player player);
 
+    /**
+     * Teams an arbitrary player id belongs to, for callers that have no {@link Player} at hand.
+     *
+     * <p>Used by the tank owner check, which resolves the owner's teams while the owner is offline. Defaults
+     * to no teams so a resolver that cannot look players up by id stays correct, just more restrictive.
+     */
+    default List<TeamInfo> teamsOf(UUID playerId) {
+        return List.of();
+    }
+
     /** Every team known to the team mod, for pickers. Never null. */
     List<TeamInfo> allTeams();
 }

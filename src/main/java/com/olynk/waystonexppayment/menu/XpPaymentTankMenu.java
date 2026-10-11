@@ -18,6 +18,15 @@ import net.minecraft.world.item.ItemStack;
  */
 public class XpPaymentTankMenu extends AbstractContainerMenu {
 
+    /**
+     * Panel size of the tank screen.
+     *
+     * <p>The screen has no vanilla background texture, so these are only what the server-side and client-side
+     * screens agree on; they live here because the menu is the one object both sides always construct.
+     */
+    public static final int PANEL_WIDTH = 256;
+    public static final int PANEL_HEIGHT = 240;
+
     @Nullable
     private BlockPos pos;
 

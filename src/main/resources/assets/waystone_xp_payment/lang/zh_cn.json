@@ -4,5 +4,17 @@
   "commands.waystone_xp_payment.not_looking_at_tank": "请先看向 10 格内的经验流体储罐。",
   "commands.waystone_xp_payment.no_team_mod": "未安装支持的队伍模组。",
   "commands.waystone_xp_payment.no_permission": "修改储罐白/黑名单需要管理员权限。",
-  "commands.waystone_xp_payment.unknown_team": "没有该名称的队伍。"
+  "commands.waystone_xp_payment.unknown_team": "没有该名称的队伍。",
+  "commands.waystone_xp_payment.unknown_player": "该名称的玩家从未加入过本服务器。",
+  "access.mode": "模式：%s",
+  "access.mode.whitelist": "白名单",
+  "access.mode.blacklist": "黑名单",
+  "access.mode.unknown": "…",
+  "access.add_me": "+ 添加我",
+  "access.pool_xp": "%s 经验 · %s mB/经验",
+  "access.list_header": "访问列表 (%s)",
+  "access.list.empty": "暂无条目 — 点 + 添加我",
+  "access.waiting": "等待服务端…",
+  "access.tooltip.uuid": "%s",
+  "access.tooltip.name": "%s"
 }

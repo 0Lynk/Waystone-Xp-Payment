@@ -15,9 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
-import org.opentest4j.TestAbortedException;
 
 /**
  * Guards the one mixin mistake that compiles cleanly and then kills the client.
@@ -30,9 +28,9 @@ import org.opentest4j.TestAbortedException;
  * someone to open that screen.
  *
  * <p>The check runs the sources against the real classes: Waystones is an {@code implementation} dependency and
- * the NeoForge artifact carries the vanilla client classes, so both are on the test runtime classpath. When a
- * target class cannot be loaded here the test aborts rather than failing, so a classpath change shows up as a
- * skipped guard instead of a red build.
+ * the NeoForge artifact carries the vanilla client classes, so both are on the test runtime classpath. If a target
+ * class cannot be loaded here, the test <em>fails</em>: skipping would turn "the guard could not run" into a green
+ * build, which is how a guard quietly stops guarding.
  */
 class MixinShadowPolicyTest {
 
@@ -75,7 +73,10 @@ class MixinShadowPolicyTest {
         }
 
         assertTrue(targets > 0, "no @Mixin target was found under " + MIXIN_DIR + " - did the mixins move?");
-        Assumptions.assumeTrue(shadows > 0, "no @Shadow member is declared by any mixin right now");
+        // Not assumeTrue: a silently skipped guard reads as "green" in every report, and the day the mixins stop
+        // shadowing anything is the day this test has to be deleted rather than pretended to run.
+        assertTrue(shadows > 0, "no @Shadow member is declared by any mixin right now - delete this test or"
+                + " restore the shadow it guards");
     }
 
     /** Simple names come from the mixin's own imports, which is how the compiler resolved them too. */
@@ -89,7 +90,8 @@ class MixinShadowPolicyTest {
                 return imports.group(1);
             }
         }
-        throw new TestAbortedException("cannot resolve " + name + " from the imports of " + file.getFileName());
+        throw new AssertionError("cannot resolve " + name + " from the imports of " + file.getFileName()
+                + "; the mixin shadow check cannot run without the target class name");
     }
 
     private static Class<?> load(String name) {
@@ -97,8 +99,8 @@ class MixinShadowPolicyTest {
             // initialize = false: these are client classes and running their static initialisers needs a game.
             return Class.forName(name, false, MixinShadowPolicyTest.class.getClassLoader());
         } catch (Throwable failure) {
-            throw new TestAbortedException("cannot load " + name + " in the test runtime (" + failure
-                    + "); the mixin shadow check cannot run");
+            throw new AssertionError("cannot load " + name + " in the test runtime (" + failure
+                    + "); the mixin shadow check cannot run, and a guard that cannot run is not a passing guard");
         }
     }
 

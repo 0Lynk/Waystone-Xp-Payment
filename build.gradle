@@ -52,6 +52,10 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // The test source set does not inherit the mod's compile classpath from ModDevGradle, so the game types a test
+    // wants to exercise (NBT tags, packet buffers) would not resolve at compile time even though the task below
+    // already puts them on the test runtime classpath. compileOnly keeps them out of any published artifact.
+    testCompileOnly files(sourceSets.main.compileClasspath)
 }
 
 tasks.named('test', Test) {

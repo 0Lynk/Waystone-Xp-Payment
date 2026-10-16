@@ -56,6 +56,9 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     private int syncedPoolXp = -1;
     private int cachedPoolXp;
     private boolean hasSyncedData;
+    /** Last refusal written to the log, plus how many identical ones were dropped since (see logRefusalOnce). */
+    private String lastRefusal = "";
+    private int suppressedRefusals;
 
     public XpPaymentTankBlockEntity(BlockPos pos, BlockState state) {
         super(XppRegistry.XP_PAYMENT_TANK_BE.get(), pos, state);
@@ -68,8 +71,7 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
                 if (!accepted) {
                     // Logged because "the tank refused my fluid" and "the tank accepted it but cannot pay with
                     // it" look identical from the outside, and only the log can tell them apart afterwards.
-                    WaystoneXpPaymentMod.LOGGER.info("Tank at {} refuses fluid: {}",
-                            worldPosition.toShortString(), FluidRates.describe(stack));
+                    logRefusalOnce("refuses fluid: " + FluidRates.describe(stack));
                 }
                 return accepted;
             }
@@ -79,10 +81,8 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
                 int filled = super.fill(resource, action);
                 if (filled == 0 && action.execute() && !resource.isEmpty() && !getFluid().isEmpty()
                         && !FluidStack.isSameFluidSameComponents(getFluid(), resource)) {
-                    WaystoneXpPaymentMod.LOGGER.info("Tank at {} holds {} and refuses the different fluid {} - "
-                                    + "drain it first (one fluid per tank)",
-                            worldPosition.toShortString(), FluidRates.describe(getFluid()),
-                            FluidRates.describe(resource));
+                    logRefusalOnce("holds " + FluidRates.describe(getFluid()) + " and refuses the different fluid "
+                            + FluidRates.describe(resource) + " - drain it first (one fluid per tank)");
                 }
                 return filled;
             }
@@ -94,6 +94,27 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
                 setChanged();
             }
         };
+    }
+
+    /**
+     * Logs a refusal once per distinct message.
+     *
+     * <p>A pipe that keeps pushing the wrong fluid retries every tick, and on a live instance that turned into 419
+     * byte-identical lines in three minutes (2026-10-16), burying everything else the log had to say. Repeats are
+     * counted and reported together with the next different refusal instead of being written one by one.
+     */
+    private void logRefusalOnce(String message) {
+        if (message.equals(lastRefusal)) {
+            suppressedRefusals++;
+            return;
+        }
+        if (suppressedRefusals > 0) {
+            WaystoneXpPaymentMod.LOGGER.info("Tank at {}: {} more identical refusal(s) not shown",
+                    worldPosition.toShortString(), suppressedRefusals);
+            suppressedRefusals = 0;
+        }
+        lastRefusal = message;
+        WaystoneXpPaymentMod.LOGGER.info("Tank at {} {}", worldPosition.toShortString(), message);
     }
 
     public IFluidHandler getFluidHandler(@Nullable net.minecraft.core.Direction side) {
@@ -239,6 +260,7 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         tank.readFromNBT(registries, tag);
+        clampLoadedPoolToCapacity();
         if (tag.contains("access")) {
             access = AccessList.load(tag.getCompound("access"));
         }
@@ -257,6 +279,26 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     public void setChanged() {
         super.setChanged();
         broadcastToClients();
+    }
+
+    /**
+     * Trims a loaded pool back to the tank's capacity.
+     *
+     * <p>{@code FluidTank.readFromNBT} assigns the stored stack without consulting the capacity, so a tank saved
+     * before an admin lowered {@code tank.capacityMb}, or a tag written with {@code /data merge}, comes back
+     * holding more than the tank can hold - and the screen then reports a pool no code path can ever refill
+     * (measured on 2026-10-16: 999,999 mB inside a 4,000 mB tank, surviving a restart).
+     */
+    private void clampLoadedPoolToCapacity() {
+        FluidStack fluid = tank.getFluid();
+        int capacity = tank.getCapacity();
+        if (fluid.getAmount() > capacity) {
+            WaystoneXpPaymentMod.LOGGER.warn("Tank at {} loaded {} mB but its capacity is {} mB - trimming the pool",
+                    worldPosition.toShortString(), fluid.getAmount(), capacity);
+            FluidStack trimmed = fluid.copy();
+            trimmed.setAmount(capacity);
+            tank.setFluid(trimmed);
+        }
     }
 
     @Override

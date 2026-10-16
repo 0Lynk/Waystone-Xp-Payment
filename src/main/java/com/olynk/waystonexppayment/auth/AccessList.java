@@ -9,6 +9,8 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
@@ -256,9 +258,11 @@ public final class AccessList {
             try {
                 target.add(NbtUtils.loadUUID(list.get(i)));
             } catch (RuntimeException e) {
-                // A hand-edited or truncated int array is not worth refusing to load the whole tank for.
-                target.clear();
-                return;
+                // Dropping only the bad entry keeps the rest of the list usable - the same promise writeUuids()
+                // makes for id-less entries. Clearing the set would silently revoke every other player the owner
+                // ever allowed, because one hand-edited int array failed to parse.
+                WaystoneXpPaymentMod.LOGGER.warn("Dropping malformed UUID entry #{} of '{}' while loading a payment "
+                        + "tank's access list ({} entries kept)", i, key, target.size());
             }
         }
     }

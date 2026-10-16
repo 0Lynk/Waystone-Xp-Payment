@@ -39,12 +39,13 @@ public final class XppRegistry {
     public static final DeferredRegister<MenuType<?>> MENUS =
             DeferredRegister.create(Registries.MENU, WaystoneXpPaymentMod.MOD_ID);
 
+    // No requiresCorrectToolForDrops(): the tank is where a player parks their experience fluid, so a swing with
+    // the wrong tool (or a bare hand) must still return the block instead of deleting the pool inside it.
     public static final DeferredBlock<XpPaymentTankBlock> XP_PAYMENT_TANK = BLOCKS.register("xp_payment_tank",
             () -> new XpPaymentTankBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.METAL)
                     .strength(3.5F, 6.0F)
-                    .sound(SoundType.METAL)
-                    .requiresCorrectToolForDrops()));
+                    .sound(SoundType.METAL)));
 
     public static final DeferredItem<BlockItem> XP_PAYMENT_TANK_ITEM =
             ITEMS.registerSimpleBlockItem("xp_payment_tank", XP_PAYMENT_TANK);

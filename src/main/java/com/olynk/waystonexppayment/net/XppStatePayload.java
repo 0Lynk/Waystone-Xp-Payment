@@ -16,6 +16,7 @@ import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
 
+import io.netty.handler.codec.DecoderException;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.FriendlyByteBuf;
@@ -49,6 +50,15 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
      */
     public record Entry(@Nullable UUID id, String label, boolean team, boolean mine) {
     }
+
+    /**
+     * Wire cap on how many rows one snapshot may carry.
+     *
+     * <p>The count is a VarInt off the network, and {@code new ArrayList<>(size)} trusts it: a client that sends
+     * a huge number would have the server allocate that many slots before the first entry is even read. No tank
+     * screen shows more than a handful of rows, so anything past this is malformed or hostile.
+     */
+    public static final int MAX_ENTRIES = 256;
 
     public static final CustomPacketPayload.Type<XppStatePayload> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(
@@ -205,11 +215,26 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
 
     private static List<Entry> readEntries(FriendlyByteBuf buffer) {
         int size = buffer.readVarInt();
+        requireEntryCount(size);
         List<Entry> entries = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             UUID id = buffer.readBoolean() ? UUIDUtil.STREAM_CODEC.decode(buffer) : null;
             entries.add(new Entry(id, buffer.readUtf(64), buffer.readBoolean(), buffer.readBoolean()));
         }
         return entries;
+    }
+
+    /**
+     * Refuses a row count the wire should never carry.
+     *
+     * <p>Package-private so the bounds can be unit-tested without a live registry: the decode path itself needs a
+     * {@code RegistryFriendlyByteBuf}, the rule does not.
+     */
+    static void requireEntryCount(int size) {
+        if (size < 0 || size > MAX_ENTRIES) {
+            // Reading on regardless would leave the buffer mid-entry and corrupt every later payload on this
+            // connection, so the packet is refused instead.
+            throw new DecoderException("Entry count out of range: " + size);
+        }
     }
 }

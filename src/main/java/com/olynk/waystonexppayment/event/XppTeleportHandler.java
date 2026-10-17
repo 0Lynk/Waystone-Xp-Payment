@@ -138,7 +138,7 @@ public final class XppTeleportHandler {
     private static XpPaymentTankBlockEntity tankBelow(ServerLevel level, BlockPos waystonePos, PayerBudget budget) {
         List<BlockPos> candidates = TankPlacement.candidateTankPositions(level, waystonePos);
         XpPaymentTankBlockEntity resident = residentTankAt(level, candidates);
-        if (resident != null) {
+        if (!shouldLoadForTank(resident != null, level.isLoaded(waystonePos))) {
             return resident;
         }
         // Every candidate shares the waystone's own chunk (they differ in Y only), so one permit covers the whole
@@ -153,6 +153,19 @@ public final class XppTeleportHandler {
                 waystonePos.toShortString());
         level.getChunk(waystonePos.getX() >> 4, waystonePos.getZ() >> 4, ChunkStatus.FULL, true);
         return residentTankAt(level, candidates);
+    }
+
+    /**
+     * Whether loading this waystone's chunk can still turn "no tank found" into "tank found".
+     *
+     * <p>False when the chunk is already resident: both candidate slots were just probed inside it, so a load
+     * reveals nothing. Asking the budget anyway spends the attempt's only permit on that no-op - and the source
+     * end of a trip is resident by definition and often has no tank, so it used to eat the permit the
+     * destination needed. The first click then fell back to the player's own XP and failed; the retry succeeded
+     * only because {@link PayerBudget}'s memo absorbed the wasted request for a few seconds.
+     */
+    static boolean shouldLoadForTank(boolean tankFoundHere, boolean chunkResident) {
+        return !tankFoundHere && !chunkResident;
     }
 
     /**

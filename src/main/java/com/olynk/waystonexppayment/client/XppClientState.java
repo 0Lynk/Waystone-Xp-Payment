@@ -2,6 +2,7 @@ package com.olynk.waystonexppayment.client;
 
 import com.olynk.waystonexppayment.net.XppMembersPayload;
 import com.olynk.waystonexppayment.net.XppStatePayload;
+import com.olynk.waystonexppayment.net.XppTankHintPayload;
 
 import net.minecraft.client.Minecraft;
 
@@ -30,6 +31,11 @@ public final class XppClientState {
         if (Minecraft.getInstance().screen instanceof XpPaymentTankScreen screen) {
             screen.onMembers(payload);
         }
+    }
+
+    /** Feeds one server answer about tanks this client cannot see into {@link XppTankHints}. */
+    public static void acceptHints(XppTankHintPayload payload) {
+        XppTankHints.accept(payload);
     }
 
     public static XppStatePayload latest() {

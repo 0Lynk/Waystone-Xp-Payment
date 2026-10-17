@@ -8,6 +8,7 @@ import com.olynk.waystonexppayment.auth.TeamResolver;
 import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.client.XppClientTankRegistry;
 import com.olynk.waystonexppayment.config.XppSettings;
+import com.olynk.waystonexppayment.data.TankPoolIndex;
 import com.olynk.waystonexppayment.fluid.FluidRates;
 import com.olynk.waystonexppayment.registry.XppRegistry;
 
@@ -92,8 +93,23 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
                 // Cached here so the client preview (icon render + live button refresh) only ever reads a field.
                 cachedPoolXp = FluidRates.xpValue(getFluid());
                 setChanged();
+                recordPoolInIndex();
             }
         };
+    }
+
+    /**
+     * Publishes this slot's current pool to {@link TankPoolIndex}.
+     *
+     * <p>That index is what lets a destination whose chunk is not resident be quoted and paid; a tank that
+     * changes without a write here would keep being quoted at its previous value until its chunk is loaded
+     * again. Cheap on purpose - one map write per contents change, not per tick.
+     */
+    private void recordPoolInIndex() {
+        if (level instanceof ServerLevel serverLevel) {
+            TankPoolIndex.get(serverLevel.getServer()).record(serverLevel.dimension().location(), worldPosition,
+                    cachedPoolXp, mbPerXp(), System.currentTimeMillis());
+        }
     }
 
     /**
@@ -273,6 +289,9 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         syncedPoolXp = tag.contains(SYNC_POOL_XP) ? Math.max(0, tag.getInt(SYNC_POOL_XP)) : -1;
         cachedPoolXp = FluidRates.xpValue(tank.getFluid());
         hasSyncedData = true;
+        // A loaded chunk is the only chance to refresh the index for a slot nobody touched since the world was
+        // saved; without this the index would only learn about tanks that keep changing.
+        recordPoolInIndex();
     }
 
     @Override

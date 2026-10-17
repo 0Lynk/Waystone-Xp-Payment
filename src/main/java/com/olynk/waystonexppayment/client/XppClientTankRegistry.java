@@ -38,6 +38,16 @@ public final class XppClientTankRegistry {
         return SEEN.contains(key(dimension, tankPos));
     }
 
+    /**
+     * Forgets every position, called when the client leaves a world.
+     *
+     * <p>Without this the entries outlive the world they were seen in: joining another save that happens to have a
+     * waystone at the same coordinates would inherit this one's "there is a tank here" claim.
+     */
+    public static void clear() {
+        SEEN.clear();
+    }
+
     private static String key(ResourceKey<Level> dimension, BlockPos pos) {
         return dimension.location() + "@" + pos.asLong();
     }

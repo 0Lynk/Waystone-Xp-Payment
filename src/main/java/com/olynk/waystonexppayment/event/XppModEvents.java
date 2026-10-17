@@ -9,6 +9,8 @@ import com.olynk.waystonexppayment.net.XppAccessPayload;
 import com.olynk.waystonexppayment.net.XppMembersPayload;
 import com.olynk.waystonexppayment.net.XppServerHandler;
 import com.olynk.waystonexppayment.net.XppStatePayload;
+import com.olynk.waystonexppayment.net.XppTankHintPayload;
+import com.olynk.waystonexppayment.net.XppTankHintQueryPayload;
 import com.olynk.waystonexppayment.registry.XppRegistry;
 
 import net.minecraft.world.item.CreativeModeTabs;
@@ -44,15 +46,19 @@ public final class XppModEvents {
 
     @SubscribeEvent
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        // Bumped from "1": both the payload set and the Action enum changed, and a version mismatch is refused
-        // during the handshake, which is far easier to diagnose than a byte stream that decodes into nonsense.
-        PayloadRegistrar registrar = event.registrar("2");
+        // Bumped from "2": the payload set changed again (the two tank-hint messages), and a version mismatch is
+        // refused during the handshake, which is far easier to diagnose than a byte stream that decodes into nonsense.
+        PayloadRegistrar registrar = event.registrar("3");
         // The client class is only touched inside the handler, which never runs on a dedicated server.
         registrar.playToClient(XppStatePayload.TYPE, XppStatePayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> XppClientState.accept(payload)));
         registrar.playToClient(XppMembersPayload.TYPE, XppMembersPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> XppClientState.acceptMembers(payload)));
+        registrar.playToClient(XppTankHintPayload.TYPE, XppTankHintPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> XppClientState.acceptHints(payload)));
         registrar.playToServer(XppAccessPayload.TYPE, XppAccessPayload.STREAM_CODEC, XppServerHandler::handle);
+        registrar.playToServer(XppTankHintQueryPayload.TYPE, XppTankHintQueryPayload.STREAM_CODEC,
+                XppServerHandler::handleHintQuery);
     }
 
     @SubscribeEvent

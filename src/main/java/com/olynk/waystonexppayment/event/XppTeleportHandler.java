@@ -6,8 +6,10 @@ import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
+import com.olynk.waystonexppayment.data.TankPoolIndex;
 import com.olynk.waystonexppayment.fluid.FluidRates;
 import com.olynk.waystonexppayment.payment.FluidPaymentRequirement;
+import com.olynk.waystonexppayment.payment.PayerBudget;
 import com.olynk.waystonexppayment.payment.TankPlacement;
 import com.olynk.waystonexppayment.payment.XpRequirementScanner;
 
@@ -18,6 +20,7 @@ import net.blay09.mods.waystones.api.requirement.WarpRequirement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 /**
  * Replaces the XP part of a teleport's requirements when either end of the trip has a payment tank directly
@@ -28,6 +31,9 @@ import net.minecraft.server.level.ServerPlayer;
  * is exactly where the real cost can be read and swapped for a fluid payment.
  */
 public final class XppTeleportHandler {
+
+    /** How long a destination slot whose chunk could not be loaded is left alone before it is retried. */
+    private static final long REMOTE_PAYER_MEMO_MILLIS = 5_000L;
 
     private XppTeleportHandler() {
     }
@@ -43,11 +49,17 @@ public final class XppTeleportHandler {
 
         ServerLevel playerLevel = player.serverLevel();
 
+        // One budget per attempt. The source end is resident by definition (the player is standing at it), so
+        // in practice this is the destination's single allowed load.
+        XppSettings settings = XppSettings.current();
+        PayerBudget budget = new PayerBudget(
+                settings.remoteDestinationPayments() ? settings.remotePaymentChunkLoads() : 0);
+
         // The tank can hang under either end of the trip: below the waystone the player travels from, or below
         // the destination waystone (arriving somewhere should be payable by that place's pool too).
-        Payer payer = payerAt(context.getFromWaystone().orElse(null), playerLevel, player, "source");
+        Payer payer = payerAt(context.getFromWaystone().orElse(null), playerLevel, player, "source", budget);
         if (payer == null) {
-            payer = payerAt(context.getTargetWaystone(), playerLevel, player, "destination");
+            payer = payerAt(context.getTargetWaystone(), playerLevel, player, "destination", budget);
         }
         if (payer == null) {
             return;
@@ -74,7 +86,7 @@ public final class XppTeleportHandler {
     /** The paying tank below a waystone, or {@code null} when there is none the player may use. */
     @Nullable
     private static Payer payerAt(@Nullable Waystone waystone, ServerLevel playerLevel, ServerPlayer player,
-                                 String kind) {
+                                 String kind, PayerBudget budget) {
         if (waystone == null) {
             return null;
         }
@@ -85,8 +97,8 @@ public final class XppTeleportHandler {
             return null;
         }
         BlockPos tankPos = TankPlacement.tankPosFor(level, waystone);
-        if (!(level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity tank) || tank.getTank().isEmpty()) {
-            // Unloaded destination chunks land here on purpose: fall back to the player rather than guess.
+        XpPaymentTankBlockEntity tank = tankAt(level, tankPos, budget);
+        if (tank == null || tank.getTank().isEmpty()) {
             return null;
         }
         if (!tank.access().allows(player, TeamResolvers.get())) {
@@ -101,6 +113,31 @@ public final class XppTeleportHandler {
                     tankPos.toShortString(), FluidRates.describe(tank.getTank().getFluid()));
         }
         return new Payer(kind, level, tankPos, tank);
+    }
+
+    /**
+     * The tank at {@code tankPos}, loading its chunk when the remote-destination setting allows it.
+     *
+     * <p>Without the load, a destination whose chunk is not resident can never pay, which is the common case:
+     * the point of a waystone is to travel somewhere you are not standing. The chunk is not a gamble either -
+     * a destination waystone's block lives in it, so the chunk exists on disk; this reads it in, and the
+     * teleport loads the very same chunk moments later anyway.
+     */
+    @Nullable
+    private static XpPaymentTankBlockEntity tankAt(ServerLevel level, BlockPos tankPos, PayerBudget budget) {
+        if (level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity loaded) {
+            return loaded;
+        }
+        String slot = TankPoolIndex.key(level.dimension().location(), tankPos);
+        if (!budget.requestLoad(slot, System.currentTimeMillis(), REMOTE_PAYER_MEMO_MILLIS)) {
+            // Budget spent, or this exact slot was tried a moment ago: fall back to the player instead of
+            // paying for the same chunk load twice.
+            return null;
+        }
+        WaystoneXpPaymentMod.LOGGER.debug("Loading the chunk at {} to reach the payment tank below a waystone",
+                tankPos.toShortString());
+        level.getChunk(tankPos.getX() >> 4, tankPos.getZ() >> 4, ChunkStatus.FULL, true);
+        return level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity tank ? tank : null;
     }
 
     private record Payer(String kind, ServerLevel level, BlockPos pos, XpPaymentTankBlockEntity tank) {

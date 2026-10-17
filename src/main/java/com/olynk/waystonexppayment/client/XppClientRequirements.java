@@ -6,6 +6,7 @@ import javax.annotation.Nullable;
 
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
+import com.olynk.waystonexppayment.net.XppTankHintPayload;
 import com.olynk.waystonexppayment.payment.TankPlacement;
 import com.olynk.waystonexppayment.payment.XpRequirementScanner;
 
@@ -13,6 +14,7 @@ import net.blay09.mods.waystones.api.Waystone;
 import net.blay09.mods.waystones.api.WaystoneTeleportContext;
 import net.blay09.mods.waystones.api.requirement.WarpRequirement;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
@@ -76,20 +78,25 @@ public final class XppClientRequirements {
                         : "pool " + payer.loaded().poolXpForClient() + " XP",
                 costXp);
         return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp,
-                payer.loaded());
-    }
-
-    /** A tank below a waystone: the loaded block entity, or {@code null} when only its remembered position exists. */
-    private record TankRef(@Nullable XpPaymentTankBlockEntity loaded) {
+                payer.loaded(), payer.dimension(), payer.pos());
     }
 
     /**
-     * The tank below a waystone: the loaded block entity when its chunk is here, otherwise the position this
-     * client remembers having seen a tank at, or {@code null} when there is none.
+     * A tank below a waystone: where its slot is, plus the loaded block entity when this client has that chunk.
      *
-     * <p>The remembered case must stay a distinct answer rather than "nothing": for a destination whose chunk is
-     * not loaded there is no block entity to inspect, and the server may well find a tank there when it loads the
-     * chunk to teleport.
+     * <p>The slot is kept even without a block entity because it is what a server hint is looked up by: the pool
+     * of a far-away tank arrives as a position-keyed answer, not as an object this client can inspect.
+     */
+    private record TankRef(BlockPos pos, ResourceLocation dimension, @Nullable XpPaymentTankBlockEntity loaded) {
+    }
+
+    /**
+     * The tank below a waystone: the loaded block entity when its chunk is here, otherwise a position this client
+     * has reason to believe holds a tank, or {@code null} when there is nothing to go on.
+     *
+     * <p>Reasons to believe, in the order they are trusted: what this client saw itself, then what the server last
+     * reported for that slot. A slot the server has never answered for is unknown, not empty - but it is also not
+     * evidence enough to light the button, so it is queued for one question and the entry stays gated this round.
      */
     private static TankRef tankBelow(Level level, Waystone waystone) {
         if (waystone == null || !waystone.getDimension().equals(level.dimension())) {
@@ -99,21 +106,38 @@ public final class XppClientRequirements {
         BlockPos tankPos = TankPlacement.tankPosFor(level, waystone);
         if (level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity tank) {
             XppClientTankRegistry.remember(level, tankPos);
-            return new TankRef(tank);
+            return new TankRef(tankPos, waystone.getDimension().location(), tank);
         }
-        return XppClientTankRegistry.knows(waystone.getDimension(), tankPos) ? new TankRef(null) : null;
+        ResourceLocation dimension = waystone.getDimension().location();
+        if (XppClientTankRegistry.knows(waystone.getDimension(), tankPos)) {
+            return new TankRef(tankPos, dimension, null);
+        }
+        XppTankHintPayload.Hint hint = XppTankHints.hint(dimension, tankPos);
+        if (hint == null || !hint.known()) {
+            XppTankHints.request(dimension, tankPos);
+        }
+        return hint != null && hint.hasTank() ? new TankRef(tankPos, dimension, null) : null;
     }
 
-    /** A tank can only pay when it holds something; a remembered tank has unknown contents and must be kept. */
+    /**
+     * A tank can only pay when it holds something.
+     *
+     * <p>For a tank whose contents are not here, the last server answer decides: an explicit empty pool is a real
+     * "no payer" rather than an unknown, which is the one case that must not stay permissive.
+     */
     @Nullable
     private static TankRef payerAt(@Nullable TankRef ref) {
         if (ref == null) {
             return null;
         }
-        if (ref.loaded() == null) {
-            return ref;
+        if (ref.loaded() != null) {
+            return ref.loaded().getTank().isEmpty() ? null : ref;
         }
-        return ref.loaded().getTank().isEmpty() ? null : ref;
+        XppTankHintPayload.Hint hint = XppTankHints.hint(ref.dimension(), ref.pos());
+        if (hint != null && hint.hasTank() && hint.poolXp() <= 0) {
+            return null;
+        }
+        return ref;
     }
 
     /** Waystone dimension and position for diagnostics, or {@code none}. */

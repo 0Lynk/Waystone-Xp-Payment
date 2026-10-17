@@ -30,26 +30,40 @@ public final class PayerBudget {
     /**
      * Asks permission to load the chunk behind {@code slot} and consumes budget when it is granted.
      *
-     * <p>A granted load normally leaves the chunk resident, so the next click on the same entry takes the
-     * already-loaded path and never comes back here; the memo therefore only matters for the failure case.
+     * <p>Granting does not remember anything: see {@link #rememberMiss} for why only a miss may.
      *
      * @param slot a stable identifier for the destination slot (dimension and position)
      * @param nowMillis current time, injected so tests do not have to sleep
-     * @param memoMillis how long a failed attempt suppresses a retry for the same slot
-     * @return true when the caller may load, false when the budget is spent or the same slot was tried inside
-     *         the memo window
+     * @return true when the caller may load, false when the budget is spent or the same slot missed inside the
+     *         memo window
      */
-    public boolean requestLoad(String slot, long nowMillis, long memoMillis) {
-        Long triedAt = RECENT_ATTEMPTS.get(slot);
-        if (triedAt != null && nowMillis < triedAt) {
+    public boolean requestLoad(String slot, long nowMillis) {
+        Long missedAt = RECENT_ATTEMPTS.get(slot);
+        if (missedAt != null && nowMillis < missedAt) {
             return false;
         }
         if (used >= chunkLoads) {
             return false;
         }
         used++;
-        rememberUntil(slot, nowMillis + Math.max(0L, memoMillis));
         return true;
+    }
+
+    /**
+     * Remembers that loading {@code slot} produced no paying tank, so the next click does not pay for the same
+     * fruitless load again.
+     *
+     * <p>Only a miss is remembered. A load that did find a tank leaves the chunk resident - but only until the
+     * player leaves it, and a destination is exactly where the player does not stay. Remembering the success
+     * would then refuse the next trip's only load, and the player would be told they cannot afford a teleport
+     * that the very same tank was paying for seconds earlier.
+     *
+     * @param slot stable identifier for the destination slot
+     * @param nowMillis when the miss happened
+     * @param memoMillis how long a retry for the same slot stays suppressed
+     */
+    public void rememberMiss(String slot, long nowMillis, long memoMillis) {
+        rememberUntil(slot, nowMillis + Math.max(0L, memoMillis));
     }
 
     /** How many loads this budget has granted so far. */

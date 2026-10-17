@@ -4,11 +4,13 @@ import com.mojang.serialization.MapCodec;
 import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
+import com.olynk.waystonexppayment.data.TankPoolIndex;
 import com.olynk.waystonexppayment.menu.XpPaymentTankMenu;
 import com.olynk.waystonexppayment.net.XppStatePayload;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -35,6 +37,22 @@ public class XpPaymentTankBlock extends BaseEntityBlock {
 
     public XpPaymentTankBlock(Properties properties) {
         super(properties);
+    }
+
+    /**
+     * Drops the remembered pool of this slot when the block itself goes away.
+     *
+     * <p>Not in {@code BlockEntity#setRemoved}: that also runs when a chunk unloads, and erasing the entry then
+     * would defeat the whole index - the point is to keep knowing about a pool whose chunk is not resident.
+     * A slot whose tank is gone but whose index entry lingers would quote a payment the server cannot collect,
+     * which is the one direction of error this feature must not produce.
+     */
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
+            TankPoolIndex.get(serverLevel.getServer()).forget(level.dimension().location(), pos);
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override

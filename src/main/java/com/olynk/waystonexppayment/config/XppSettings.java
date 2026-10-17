@@ -6,9 +6,10 @@ package com.olynk.waystonexppayment.config;
  */
 public record XppSettings(int mbPerXp, int capacityMb, boolean allowBucketInteraction,
                           boolean skipPaymentInCreative, boolean acceptUndeclaredFluids,
-                          boolean acceptExperienceNamedFluids) {
+                          boolean acceptExperienceNamedFluids, boolean remoteDestinationPayments,
+                          int remotePaymentChunkLoads) {
 
-    public static final XppSettings DEFAULTS = new XppSettings(1, 4000, true, true, false, true);
+    public static final XppSettings DEFAULTS = new XppSettings(1, 4000, true, true, false, true, true, 1);
 
     private static volatile XppSettings current = DEFAULTS;
 
@@ -25,7 +26,9 @@ public record XppSettings(int mbPerXp, int capacityMb, boolean allowBucketIntera
                     XppConfig.ALLOW_BUCKET_INTERACTION.get(),
                     XppConfig.SKIP_PAYMENT_IN_CREATIVE.get(),
                     XppConfig.ACCEPT_UNDECLARED_FLUIDS.get(),
-                    XppConfig.ACCEPT_EXPERIENCE_NAMED_FLUIDS.get());
+                    XppConfig.ACCEPT_EXPERIENCE_NAMED_FLUIDS.get(),
+                    XppConfig.REMOTE_DESTINATION_PAYMENTS.get(),
+                    XppConfig.REMOTE_PAYMENT_CHUNK_LOADS.get());
         } catch (IllegalStateException e) {
             current = DEFAULTS;
         }

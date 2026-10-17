@@ -10,10 +10,16 @@ import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.auth.TeamResolver;
 import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
+import com.olynk.waystonexppayment.config.XppSettings;
+import com.olynk.waystonexppayment.data.TankPoolIndex;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
@@ -56,6 +62,62 @@ public final class XppServerHandler {
             apply(tank, player, payload);
             XppStatePayload.sendTo(player, pos, tank, TeamResolvers.get().teamsOf(player));
         });
+    }
+
+    /**
+     * Answers "is there a pool below any of these waystones?" for the list the client is drawing.
+     *
+     * <p>Three answers per slot, and the difference matters: a pool, "looked and there is nothing here", or
+     * "chunk not resident and nothing recorded". The last one must never be reported as "nothing here" - that
+     * is exactly the far-away case this feature exists for, and hiding it would make the button grey again.
+     *
+     * <p>Nothing is loaded here: the client may ask this per menu, and a menu is not a teleport.
+     */
+    public static void handleHintQuery(XppTankHintQueryPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) {
+                return;
+            }
+            ServerLevel level = player.server.getLevel(
+                    ResourceKey.create(Registries.DIMENSION, payload.dimension()));
+            if (level == null) {
+                return;
+            }
+            List<XppTankHintPayload.Hint> hints = new ArrayList<>(payload.tankSlots().size());
+            for (BlockPos slot : payload.tankSlots()) {
+                hints.add(hintFor(level, slot));
+            }
+            PacketDistributor.sendToPlayer(player, XppTankHintPayload.of(payload.dimension(), hints));
+        });
+    }
+
+    /** One slot's answer, without loading anything. */
+    private static XppTankHintPayload.Hint hintFor(ServerLevel level, BlockPos slot) {
+        boolean remoteEnabled = XppSettings.current().remoteDestinationPayments();
+        if (level.isLoaded(slot)) {
+            if (level.getBlockEntity(slot) instanceof XpPaymentTankBlockEntity tank) {
+                return new XppTankHintPayload.Hint(slot, tank.poolXp(), tank.mbPerXp());
+            }
+            if (remoteEnabled) {
+                // A resident chunk that has no tank is a fact worth keeping: it is what spares the next query
+                // (and a client restart) from having to ask again.
+                TankPoolIndex.get(level.getServer())
+                        .record(level.dimension().location(), slot, TankPoolIndex.NO_TANK, 0,
+                                System.currentTimeMillis());
+            }
+            return XppTankHintPayload.Hint.none(slot);
+        }
+        if (!remoteEnabled) {
+            // With the feature off the server itself will not load this chunk to pay, so "not payable from
+            // here" is the honest quote even though a tank might exist.
+            return XppTankHintPayload.Hint.none(slot);
+        }
+        TankPoolIndex.Pool recorded = TankPoolIndex.get(level.getServer())
+                .get(level.dimension().location(), slot);
+        if (recorded == null) {
+            return XppTankHintPayload.Hint.unknown(slot);
+        }
+        return new XppTankHintPayload.Hint(slot, recorded.poolXp(), recorded.mbPerXp());
     }
 
     /**

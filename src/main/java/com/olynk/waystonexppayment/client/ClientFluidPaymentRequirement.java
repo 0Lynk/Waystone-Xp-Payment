@@ -2,23 +2,31 @@ package com.olynk.waystonexppayment.client;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
+import com.olynk.waystonexppayment.net.XppTankHintPayload;
 import com.olynk.waystonexppayment.payment.PaymentSplit;
 
 import net.blay09.mods.waystones.api.requirement.WarpRequirement;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 
 /**
  * Client-side preview that answers "can this teleport be paid for", mirroring the server's tank-first,
  * player-second split so the button greys out exactly when the trip is unaffordable.
  *
- * <p>The payer is a *loaded* tank, a tank that is only remembered (its chunk is not loaded here), or none:
+ * <p>The payer is a *loaded* tank, a tank the server reported through a hint (its chunk is not loaded here), or
+ * none:
  * <ul>
  *   <li>loaded with data - mirror the arithmetic against the tank's live contents;</li>
- *   <li>no data yet, or only remembered - stay permissive and let the server decide, because reading "no
- *       information" as "empty" is what once left a full tank's button grey forever.</li>
+ *   <li>pool known from a hint - same arithmetic, on a value up to {@link XppTankHints}'s TTL old, which is
+ *       enough for a button and never enough to move items: the server does the real split;</li>
+ *   <li>no data yet, or only a remembered position - stay permissive and let the server decide, because reading
+ *       "no information" as "empty" is what once left a full tank's button grey forever.</li>
  * </ul>
  *
  * <p>Never consumes anything: the server performs the real payment through its own requirement.
@@ -28,15 +36,27 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
     private final WarpRequirement delegate;
     private final WarpRequirement residual;
     private final int costXp;
+    @Nullable
     private final XpPaymentTankBlockEntity payer;
+    @Nullable
+    private final ResourceLocation hintDimension;
+    @Nullable
+    private final BlockPos hintPos;
 
-    /** @param payer the loaded tank that will pay, or {@code null} when a tank exists but cannot be inspected here */
+    /**
+     * @param payer the loaded tank that will pay, or {@code null} when the tank itself is not loaded here
+     * @param hintDimension dimension of the tank's slot, used to look up a server hint when the tank is elsewhere
+     * @param hintPos slot below the waystone, used the same way
+     */
     public ClientFluidPaymentRequirement(WarpRequirement delegate, WarpRequirement residual, int costXp,
-                                         XpPaymentTankBlockEntity payer) {
+                                         @Nullable XpPaymentTankBlockEntity payer,
+                                         @Nullable ResourceLocation hintDimension, @Nullable BlockPos hintPos) {
         this.delegate = delegate;
         this.residual = residual;
         this.costXp = costXp;
         this.payer = payer;
+        this.hintDimension = hintDimension;
+        this.hintPos = hintPos;
     }
 
     public WarpRequirement delegate() {
@@ -45,15 +65,42 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
 
     @Override
     public boolean canAfford(Player player) {
-        if (payer != null && payer.hasSyncedData()) {
-            // Same rule the server applies: the tank pays first, the player covers the remainder.
-            int poolXp = payer.poolXpForClient();
-            if (!PaymentSplit.compute(costXp, poolXp, 1, player.totalExperience).affordable()) {
-                return false;
-            }
+        Integer poolXp = knownPoolXp();
+        if (poolXp != null && !PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), player.totalExperience)
+                .affordable()) {
+            return false;
         }
         // Everything except the XP cost still has to hold (cooldowns, item costs, ...).
         return residual == null || residual.canAfford(player);
+    }
+
+    /**
+     * @return the pool this client can see, or {@code null} when it has no reading and the server must decide
+     */
+    @Nullable
+    private Integer knownPoolXp() {
+        if (payer != null && payer.hasSyncedData()) {
+            return payer.poolXpForClient();
+        }
+        XppTankHintPayload.Hint hint = hint();
+        return hint != null && hint.hasTank() ? hint.poolXp() : null;
+    }
+
+    /**
+     * The rate only decides how many mB a payment moves, never whether it is affordable, so an unknown rate is
+     * harmless here - but a hint carries the server's real one and using it keeps the preview exact.
+     */
+    private int knownMbPerXp() {
+        XppTankHintPayload.Hint hint = hint();
+        return hint != null && hint.hasTank() ? Math.max(1, hint.mbPerXp()) : 1;
+    }
+
+    @Nullable
+    private XppTankHintPayload.Hint hint() {
+        if (hintDimension == null || hintPos == null) {
+            return null;
+        }
+        return XppTankHints.hint(hintDimension, hintPos);
     }
 
     @Override

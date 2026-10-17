@@ -26,6 +26,8 @@ public final class XppConfig {
     public static final ModConfigSpec.IntValue MB_PER_XP;
     public static final ModConfigSpec.IntValue TANK_CAPACITY_MB;
     public static final ModConfigSpec.BooleanValue ALLOW_BUCKET_INTERACTION;
+    public static final ModConfigSpec.BooleanValue REMOTE_DESTINATION_PAYMENTS;
+    public static final ModConfigSpec.IntValue REMOTE_PAYMENT_CHUNK_LOADS;
     public static final ModConfigSpec.BooleanValue SKIP_PAYMENT_IN_CREATIVE;
     public static final ModConfigSpec.BooleanValue ACCEPT_UNDECLARED_FLUIDS;
     public static final ModConfigSpec.BooleanValue ACCEPT_EXPERIENCE_NAMED_FLUIDS;
@@ -76,6 +78,19 @@ public final class XppConfig {
                 .comment("Whether right-clicking the tank with a bucket fills/drains it.",
                         "Disable to force pipe-only interaction.")
                 .define("allowBucketInteraction", true);
+
+        REMOTE_DESTINATION_PAYMENTS = builder
+                .comment("When true, the pool below the *destination* waystone can pay even while its chunk is",
+                        "not loaded: the server loads that one chunk (without generating it) to read the tank.",
+                        "Set false to require the destination chunk to be loaded already, which is what the mod",
+                        "did before 0.2.1 and leaves far-away destinations payable by the player only.")
+                .define("remoteDestinationPayments", true);
+
+        REMOTE_PAYMENT_CHUNK_LOADS = builder
+                .comment("How many chunk loads a single teleport may spend looking for that destination pool.",
+                        "0 = never load, 1 = the default (the teleport loads the chunk microseconds later anyway).",
+                        "Each load is a synchronous read on the server thread, so this stays small on purpose.")
+                .defineInRange("remotePaymentChunkLoadsPerTeleport", 1, 0, 4);
 
         builder.pop();
 

@@ -144,15 +144,20 @@ public final class XppTeleportHandler {
         // Every candidate shares the waystone's own chunk (they differ in Y only), so one permit covers the whole
         // candidate set and the waystone position is both the chunk to ask for and the slot to bill.
         String slot = TankPoolIndex.key(level.dimension().location(), waystonePos);
-        if (!budget.requestLoad(slot, System.currentTimeMillis(), REMOTE_PAYER_MEMO_MILLIS)) {
-            // Budget spent, or this exact slot was tried a moment ago: fall back to the player instead of
-            // paying for the same chunk load twice.
+        long now = System.currentTimeMillis();
+        if (!budget.requestLoad(slot, now)) {
+            // Budget spent, or this slot already missed a moment ago: fall back to the player instead of paying
+            // for the same fruitless load twice.
             return null;
         }
         WaystoneXpPaymentMod.LOGGER.debug("Loading the chunk at {} to reach the payment tank below a waystone",
                 waystonePos.toShortString());
         level.getChunk(waystonePos.getX() >> 4, waystonePos.getZ() >> 4, ChunkStatus.FULL, true);
-        return residentTankAt(level, candidates);
+        XpPaymentTankBlockEntity loaded = residentTankAt(level, candidates);
+        if (loaded == null) {
+            budget.rememberMiss(slot, now, REMOTE_PAYER_MEMO_MILLIS);
+        }
+        return loaded;
     }
 
     /**

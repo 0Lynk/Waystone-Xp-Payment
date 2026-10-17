@@ -6,6 +6,8 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -45,6 +47,9 @@ public final class TankPoolIndex extends SavedData {
 
     private final Map<String, Pool> pools = new HashMap<>();
 
+    // Not part of the saved data on purpose: a server that restarts may warn once more, which is the point.
+    private boolean warnedAboutCap;
+
     /** @param poolXp XP the tank could pay, or {@link #NO_TANK} when the slot was seen and had no tank */
     public record Pool(int poolXp, int mbPerXp, long updatedAt) {
 
@@ -62,6 +67,15 @@ public final class TankPoolIndex extends SavedData {
     public void record(ResourceLocation dimension, BlockPos pos, int poolXp, int mbPerXp, long now) {
         String key = key(dimension, pos);
         if (!pools.containsKey(key) && pools.size() >= MAX_ENTRIES) {
+            // Silent drops would make a preview that quietly stops updating for new tanks; one line per server
+            // session is enough to point at the index without turning a crowded world into log spam.
+            if (!warnedAboutCap) {
+                warnedAboutCap = true;
+                WaystoneXpPaymentMod.LOGGER.warn(
+                        "Tank pool index is full ({} slots) - new tank slots will not be remembered for the "
+                                + "remote destination preview until entries are removed",
+                        MAX_ENTRIES);
+            }
             return;
         }
         Pool updated = new Pool(poolXp, mbPerXp, now);

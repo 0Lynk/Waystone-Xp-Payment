@@ -57,7 +57,7 @@ class XppTankHintQueryPayloadTest {
     void anEmptyTankStillCountsAsATank() {
         // The client must keep the payer (and the arithmetic) and let the split decide; reporting "no tank" here
         // would hide a tank that is merely empty at the moment the list was drawn.
-        XppTankHintPayload.Hint empty = new XppTankHintPayload.Hint(new BlockPos(0, 64, 0), 0, 1);
+        XppTankHintPayload.Hint empty = XppTankHintPayload.Hint.allowed(new BlockPos(0, 64, 0), 0, 1);
 
         assertTrue(empty.hasTank());
         assertTrue(empty.known());

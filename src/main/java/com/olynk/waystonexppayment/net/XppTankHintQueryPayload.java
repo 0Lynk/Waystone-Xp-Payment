@@ -35,7 +35,7 @@ public record XppTankHintQueryPayload(ResourceLocation dimension, List<BlockPos>
      * player can see - but it does buy the server a chunk lookup each. The client sends more entries in a
      * follow-up packet instead of one unbounded one.
      */
-    public static final int MAX_SLOTS = 32;
+    public static final int MAX_SLOTS = XppWireLimits.MAX_HINTS;
 
     public static final CustomPacketPayload.Type<XppTankHintQueryPayload> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(

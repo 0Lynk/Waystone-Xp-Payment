@@ -57,7 +57,22 @@ public interface TeamResolver {
         public List<TeamInfo> allTeams() {
             return List.of();
         }
+
+        @Override
+        public boolean available() {
+            return false;
+        }
     };
+
+    /**
+     * Whether a team mod answered this question at all.
+     *
+     * <p>Callers need it to tell "this player is in no teams" from "nobody can look that up here": the first is
+     * evidence of exclusion, the second is not, and a permission answer built on the second would be a guess.
+     */
+    default boolean available() {
+        return true;
+    }
 
     /** Teams the player currently belongs to. Never null. */
     List<TeamInfo> teamsOf(Player player);

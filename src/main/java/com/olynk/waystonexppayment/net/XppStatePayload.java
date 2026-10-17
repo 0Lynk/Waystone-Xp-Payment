@@ -58,7 +58,7 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
      * a huge number would have the server allocate that many slots before the first entry is even read. No tank
      * screen shows more than a handful of rows, so anything past this is malformed or hostile.
      */
-    public static final int MAX_ENTRIES = 256;
+    public static final int MAX_ENTRIES = XppWireLimits.MAX_LIST;
 
     public static final CustomPacketPayload.Type<XppStatePayload> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(
@@ -76,7 +76,7 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
                 buffer.writeVarInt(payload.mbPerXp());
                 buffer.writeBoolean(payload.whitelist());
                 buffer.writeBoolean(payload.canEdit());
-                buffer.writeUtf(payload.ownerName(), 64);
+                buffer.writeUtf(XppWireLimits.text(payload.ownerName()), XppWireLimits.MAX_TEXT_BYTES);
                 writeEntries(buffer, payload.candidatesPlayers());
                 writeEntries(buffer, payload.candidatesTeams());
                 writeEntries(buffer, payload.entries());
@@ -201,16 +201,45 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
     }
 
     private static void writeEntries(FriendlyByteBuf buffer, List<Entry> entries) {
-        buffer.writeVarInt(entries.size());
-        for (Entry entry : entries) {
+        // Capped on the way out, not only on the way in: the reader refuses anything past MAX_ENTRIES, and a
+        // refused snapshot closes the screen whose access list is the only way to shorten that list - a server
+        // that keeps sending 257 rows is a tank nobody can ever edit again. The viewer's own rows survive the
+        // cut first, so a full list cannot cost them the entry they are looking for.
+        List<Entry> ordered = entries.size() <= XppWireLimits.MAX_LIST ? entries : mineFirst(entries);
+        List<Entry> capped = XppWireLimits.cap(ordered);
+        buffer.writeVarInt(capped.size());
+        for (Entry entry : capped) {
             buffer.writeBoolean(entry.id() != null);
             if (entry.id() != null) {
                 UUIDUtil.STREAM_CODEC.encode(buffer, entry.id());
             }
-            buffer.writeUtf(entry.label(), 64);
+            // 64 is a UTF-8 *byte* budget: a team name of 22 Chinese characters is already over it, and the
+            // encode would throw on the sending side.
+            buffer.writeUtf(XppWireLimits.text(entry.label()), XppWireLimits.MAX_TEXT_BYTES);
             buffer.writeBoolean(entry.team());
             buffer.writeBoolean(entry.mine());
         }
+    }
+
+    /**
+     * Stable partition, own rows first.
+     *
+     * <p>Only used when the list has to be cut; the normal order stays the order the screen has always shown,
+     * because reordering rows under a moving mouse is its own bug.
+     */
+    private static List<Entry> mineFirst(List<Entry> entries) {
+        List<Entry> ordered = new ArrayList<>(entries.size());
+        for (Entry entry : entries) {
+            if (entry.mine()) {
+                ordered.add(entry);
+            }
+        }
+        for (Entry entry : entries) {
+            if (!entry.mine()) {
+                ordered.add(entry);
+            }
+        }
+        return ordered;
     }
 
     private static List<Entry> readEntries(FriendlyByteBuf buffer) {
@@ -219,7 +248,8 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
         List<Entry> entries = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             UUID id = buffer.readBoolean() ? UUIDUtil.STREAM_CODEC.decode(buffer) : null;
-            entries.add(new Entry(id, buffer.readUtf(64), buffer.readBoolean(), buffer.readBoolean()));
+            entries.add(new Entry(id, buffer.readUtf(XppWireLimits.MAX_TEXT_BYTES), buffer.readBoolean(),
+                    buffer.readBoolean()));
         }
         return entries;
     }

@@ -1,5 +1,7 @@
 package com.olynk.waystonexppayment.event;
 
+import java.util.List;
+
 import javax.annotation.Nullable;
 
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
@@ -96,11 +98,14 @@ public final class XppTeleportHandler {
         if (level == null) {
             return null;
         }
-        BlockPos tankPos = TankPlacement.tankPosFor(level, waystone);
-        XpPaymentTankBlockEntity tank = tankAt(level, tankPos, budget);
+        XpPaymentTankBlockEntity tank = tankBelow(level, waystone.getPos(), budget);
         if (tank == null || tank.getTank().isEmpty()) {
             return null;
         }
+        // The slot the tank itself reports, not the one that was computed: when the waystone's shape could not
+        // be observed the tank can be in either candidate, and the requirement must name the block entity that
+        // is actually going to be drained.
+        BlockPos tankPos = tank.getBlockPos();
         if (!tank.access().allows(player, TeamResolvers.get())) {
             // Not authorised to draw from this pool: the player pays normally instead of being blocked.
             return null;
@@ -116,28 +121,58 @@ public final class XppTeleportHandler {
     }
 
     /**
-     * The tank at {@code tankPos}, loading its chunk when the remote-destination setting allows it.
+     * The tank under {@code waystonePos}, probing every candidate slot and loading the chunk when the
+     * remote-destination setting allows it.
      *
-     * <p>Without the load, a destination whose chunk is not resident can never pay, which is the common case:
-     * the point of a waystone is to travel somewhere you are not standing. The chunk is not a gamble either -
-     * a destination waystone's block lives in it, so the chunk exists on disk; this reads it in, and the
+     * <p>Why candidates: whether the tank hangs one or two blocks down depends on whether the recorded waystone
+     * position is the upper half, which cannot be observed while the chunk is not here - see
+     * {@link TankPlacement}. Both candidates are tried, so a destination in an unloaded chunk pays from the slot
+     * the tank is really in instead of reporting an empty pool.
+     *
+     * <p>Why the load is allowed at all: without it, a destination whose chunk is not resident can never pay,
+     * which is the common case - the point of a waystone is to travel somewhere you are not standing. The chunk
+     * is not a gamble either: a destination waystone's block lives in it, so the chunk exists on disk, and the
      * teleport loads the very same chunk moments later anyway.
      */
     @Nullable
-    private static XpPaymentTankBlockEntity tankAt(ServerLevel level, BlockPos tankPos, PayerBudget budget) {
-        if (level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity loaded) {
-            return loaded;
+    private static XpPaymentTankBlockEntity tankBelow(ServerLevel level, BlockPos waystonePos, PayerBudget budget) {
+        List<BlockPos> candidates = TankPlacement.candidateTankPositions(level, waystonePos);
+        XpPaymentTankBlockEntity resident = residentTankAt(level, candidates);
+        if (resident != null) {
+            return resident;
         }
-        String slot = TankPoolIndex.key(level.dimension().location(), tankPos);
+        // Every candidate shares the waystone's own chunk (they differ in Y only), so one permit covers the whole
+        // candidate set and the waystone position is both the chunk to ask for and the slot to bill.
+        String slot = TankPoolIndex.key(level.dimension().location(), waystonePos);
         if (!budget.requestLoad(slot, System.currentTimeMillis(), REMOTE_PAYER_MEMO_MILLIS)) {
             // Budget spent, or this exact slot was tried a moment ago: fall back to the player instead of
             // paying for the same chunk load twice.
             return null;
         }
         WaystoneXpPaymentMod.LOGGER.debug("Loading the chunk at {} to reach the payment tank below a waystone",
-                tankPos.toShortString());
-        level.getChunk(tankPos.getX() >> 4, tankPos.getZ() >> 4, ChunkStatus.FULL, true);
-        return level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity tank ? tank : null;
+                waystonePos.toShortString());
+        level.getChunk(waystonePos.getX() >> 4, waystonePos.getZ() >> 4, ChunkStatus.FULL, true);
+        return residentTankAt(level, candidates);
+    }
+
+    /**
+     * The first candidate whose chunk is already resident and which actually holds a payment tank.
+     *
+     * <p>{@code isLoaded} before {@code getBlockEntity}: the block entity lookup falls back to
+     * {@code getChunkAt}, which loads the chunk with {@code requireChunk=true}. Probing without that guard would
+     * pull chunks in behind the budget's back - the very bypass this handler is here to prevent.
+     */
+    @Nullable
+    private static XpPaymentTankBlockEntity residentTankAt(ServerLevel level, List<BlockPos> candidates) {
+        for (BlockPos candidate : candidates) {
+            if (!level.isLoaded(candidate)) {
+                continue;
+            }
+            if (level.getBlockEntity(candidate) instanceof XpPaymentTankBlockEntity tank) {
+                return tank;
+            }
+        }
+        return null;
     }
 
     private record Payer(String kind, ServerLevel level, BlockPos pos, XpPaymentTankBlockEntity tank) {

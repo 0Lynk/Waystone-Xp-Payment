@@ -11,6 +11,7 @@ import javax.annotation.Nullable;
 
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.auth.AccessList;
+import com.olynk.waystonexppayment.auth.PlayerNames;
 import com.olynk.waystonexppayment.auth.TeamResolver;
 import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
@@ -135,7 +136,7 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
 
         PacketDistributor.sendToPlayer(player, new XppStatePayload(pos, tank.getTank().getFluid(),
                 tank.getTank().getCapacity(), tank.poolXp(), tank.mbPerXp(), access.isWhitelist(),
-                tank.canEdit(player), tank.ownerName(), candidatePlayers(player), candidateTeams(),
+                tank.canEditOrOp(player), tank.ownerName(), candidatePlayers(player), candidateTeams(),
                 entries, own));
     }
 
@@ -168,18 +169,30 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
     }
 
     /**
-     * Best label for a stored player UUID.
+     * Best label for a stored player UUID: the sending player's own name, then whoever is online under it, then
+     * the name the profile cache still remembers after logout, then a short id.
      *
-     * <p>An offline player has no name to read, so the UUID string stands in for it: the row stays removable
-     * and the tooltip still identifies the entry exactly. [ASSUMPTION: showing a raw UUID beats hiding an
-     * entry the operator cannot otherwise see or delete.]
+     * <p>WHY the cache is in the chain: without it every member who logged off turned into a raw 36-character
+     * UUID on their row, which is the exact case {@link PlayerNames#remembered} exists for.
      */
     private static String labelForPlayer(ServerPlayer viewer, UUID playerId) {
         if (playerId.equals(viewer.getUUID())) {
             return viewer.getGameProfile().getName();
         }
         ServerPlayer online = viewer.server.getPlayerList().getPlayer(playerId);
-        return online != null ? online.getGameProfile().getName() : playerId.toString();
+        return labelFor(playerId, online == null ? null : online.getGameProfile().getName(),
+                PlayerNames.remembered(viewer.server, playerId));
+    }
+
+    /** The precedence itself, without a server to ask: a live name, then a remembered one, then the short id. */
+    static String labelFor(UUID id, @Nullable String onlineName, @Nullable String rememberedName) {
+        if (onlineName != null && !onlineName.isBlank()) {
+            return onlineName;
+        }
+        if (rememberedName != null && !rememberedName.isBlank()) {
+            return rememberedName;
+        }
+        return PlayerNames.shortId(id);
     }
 
     /**

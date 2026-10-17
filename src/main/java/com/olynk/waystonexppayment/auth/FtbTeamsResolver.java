@@ -10,13 +10,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.mojang.authlib.GameProfile;
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
@@ -176,25 +173,13 @@ final class FtbTeamsResolver implements TeamResolver {
     /**
      * Best name for a member who is not online.
      *
-     * <p>FTB stores ids, not names, and an offline member has no {@link ServerPlayer} to read one from; the
-     * server's profile cache is the only source left, and a UUID prefix is what remains when even that has no
-     * record of them. [ASSUMPTION: showing the first 8 characters of the UUID beats hiding the row, matching
-     * how {@code XppStatePayload.labelForPlayer} already falls back for an offline entry.]
+     * <p>FTB stores ids, not names, and an offline member has no {@link ServerPlayer} to read one from, so this
+     * asks the shared {@link PlayerNames} chain: the profile cache first, a short id when even that has no
+     * record of them. Shared with the access rows so both lists name a logged-off player the same way.
      */
     private static String offlineName(UUID id) {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-        if (server != null) {
-            // Null when the server runs without a profile repository (offline-mode setups construct one all
-            // the same, but nothing here may depend on that).
-            GameProfileCache cache = server.getProfileCache();
-            if (cache != null) {
-                Optional<GameProfile> profile = cache.get(id);
-                if (profile.isPresent() && !profile.get().getName().isBlank()) {
-                    return profile.get().getName();
-                }
-            }
-        }
-        return id.toString().substring(0, 8);
+        String remembered = PlayerNames.remembered(ServerLifecycleHooks.getCurrentServer(), id);
+        return remembered != null ? remembered : PlayerNames.shortId(id);
     }
 
     private boolean managerLoaded() throws ReflectiveOperationException {

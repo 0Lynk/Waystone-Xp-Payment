@@ -183,11 +183,9 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     /**
      * Whether this player owns the tank or shares a team with its owner. Operators are not included here.
      *
-     * <p>WHY the operator escape hatch sits in {@link #canEditOrOp(Player)}: both callers - the state packet
-     * that decides whether the screen enables its buttons, and the edit handler that decides whether to apply
-     * the change - used to compute the rule separately, so an operator got a locked screen against a server
-     * that would have accepted the edit. An unowned tank counts as editable by anyone, because there is no
-     * owner to deny and the first successful edit claims it.
+     * <p>The operator exemption is a separate right, not a wider reading of this one, so {@link #canEditOrOp}
+     * is what both callers ask. An unowned tank counts as editable by anyone, because there is no owner to deny
+     * and the first successful edit claims it.
      */
     public boolean canEdit(Player player) {
         UUID owner = ownerId;
@@ -224,7 +222,10 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         return editAllowed(canEdit(player), player.hasPermissions(2));
     }
 
-    /** The rule without a player to ask: whoever the tank admits, or an operator's escape hatch. */
+    /**
+     * The rule without a player to ask, so its truth table is testable without a level: whoever the tank admits,
+     * or an operator's escape hatch.
+     */
     static boolean editAllowed(boolean ownerOrTeamMate, boolean operator) {
         return ownerOrTeamMate || operator;
     }

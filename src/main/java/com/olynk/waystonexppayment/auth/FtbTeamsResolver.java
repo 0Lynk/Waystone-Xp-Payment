@@ -13,6 +13,7 @@ import java.util.UUID;
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
@@ -140,13 +141,13 @@ final class FtbTeamsResolver implements TeamResolver {
             Object value = team.get();
             Map<UUID, String> onlineNames = onlineMemberNames(value);
             Collection<?> ids = (Collection<?>) teamGetMembers.invoke(value);
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
             List<MemberInfo> members = new ArrayList<>(ids.size());
             for (Object id : ids) {
                 UUID memberId = (UUID) id;
-                // The online set is the only place a readable name can come from directly; everything else
-                // has to be looked up, and a member the server has never seen falls back to their id.
                 String online = onlineNames.get(memberId);
-                members.add(new MemberInfo(memberId, online != null ? online : offlineName(memberId),
+                members.add(new MemberInfo(memberId,
+                        PlayerNames.label(memberId, online, PlayerNames.remembered(server, memberId)),
                         online != null));
             }
             // getMembers() is a Set, whose iteration order is not part of its contract: sorting keeps the rows
@@ -168,18 +169,6 @@ final class FtbTeamsResolver implements TeamResolver {
             }
         }
         return names;
-    }
-
-    /**
-     * Best name for a member who is not online.
-     *
-     * <p>FTB stores ids, not names, and an offline member has no {@link ServerPlayer} to read one from, so this
-     * asks the shared {@link PlayerNames} chain: the profile cache first, a short id when even that has no
-     * record of them. Shared with the access rows so both lists name a logged-off player the same way.
-     */
-    private static String offlineName(UUID id) {
-        String remembered = PlayerNames.remembered(ServerLifecycleHooks.getCurrentServer(), id);
-        return remembered != null ? remembered : PlayerNames.shortId(id);
     }
 
     private boolean managerLoaded() throws ReflectiveOperationException {

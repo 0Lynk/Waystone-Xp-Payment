@@ -46,10 +46,9 @@ public final class XppServerHandler {
             if (!(player.serverLevel().getBlockEntity(pos) instanceof XpPaymentTankBlockEntity tank)) {
                 return;
             }
-            // Owner check before anything else: the answer is a snapshot either way, so a refused client still
-            // ends up with the truth on screen instead of whatever it had optimistically drawn. Operators stay
-            // allowed as well - the op path is the admin escape hatch for a tank whose owner is gone, and the
-            // two rights are independent, so the gate has to accept either one.
+            // Decided before anything else, and answered with a snapshot either way, so a refused client still
+            // ends up with the truth on screen instead of whatever it had optimistically drawn. Who may edit is
+            // canEditOrOp's rule, the same call the screen makes, so the two sides cannot disagree about it.
             boolean permitted = tank.canEditOrOp(player);
             if (payload.action() == XppAccessPayload.Action.REQUEST_MEMBERS) {
                 answerMembers(tank, player, payload, permitted);

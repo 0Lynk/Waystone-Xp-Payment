@@ -2,10 +2,18 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 0.3.0 - 2026-10-17
 
 ### Added
 
+- **Remote destination tanks pay too**: a tank directly below the *destination* waystone now counts as a payer even
+  when its chunk is not loaded. The server keeps a slot index of the tank positions it has seen (pool amount and
+  conversion rate only, 30-second freshness) and answers the client's question about the destination slots, so the
+  teleport buttons no longer go dark just because nobody has loaded the far end yet. The server still performs the
+  real split on teleport, and a payout that the index could only estimate is re-checked against the loaded tank.
+- **No quote without permission**: every tank hint carries an access state - allowed, denied, or unknown. A player
+  who may not use a tank is told so and gets no pool amount at all; the client treats "denied" as "not a payer",
+  so a locked tank can no longer light up a teleport button that the server would have refused.
 - **Mod icon**: `src/main/resources/waystone_xp_payment.png` - the file `META-INF/neoforge.mods.toml` has pointed
   `logoFile` at since the first release but which had never existed. Mod lists and the mod-detail screen show it now.
   The artwork is built from the mod's own in-game textures: the 16x16 tank block texture is projected onto the
@@ -13,9 +21,57 @@ All notable changes to this project are documented here.
   of the experience fluid's `experience_still.png` (2x scaled, tiled, dimmed to 0.8). It is reproducible:
   `node tools/make_icon.mjs <output.png>` rebuilds the 256x256 PNG - no dependencies, because the fluid frame is
   embedded in the script while the block texture is read from the repository.
+
+### Changed
+
+- **Network protocol 3 -> 4**: the tank hint gained its access field, so server and clients must run the same
+  version. A 0.2.0 client is refused at the handshake instead of misreading the packet.
+- **One name chain**: the access list and the team member list now share `PlayerNames` - live name, then the name
+  the profile cache remembers after logout, then the first eight characters of the id. Blank names count as no
+  name, so a row can no longer render as an empty line.
+- **One place for wire limits**: list sizes, hint counts and text lengths are capped in `XppWireLimits` and applied
+  when the packet is built, not only when it is read.
+
+### Fixed
+
+- An operator (permission level 2) opening somebody else's tank got every button greyed out: the server accepted the
+  edit while the screen had been told otherwise. Both sides now ask the same `canEditOrOp` rule.
+- A member of the access list who logged off turned into a raw 36-character UUID on their row; they keep their name.
+- One malformed UUID in a stored list no longer makes the whole list unopenable - the bad entry is dropped and
+  logged, and the remaining entries still load.
+- Packet readers reject counts and sizes above their limits before allocating, so a hostile or corrupt packet
+  cannot make the client reserve an unbounded array.
+- A tank loaded from a world whose `capacityMb` had been lowered is clamped on load instead of silently holding
+  more than it can, and the repeated warnings for the same broken entry were reduced to one line each.
+- The remote-destination design document no longer contradicts the code in three places, its two dead references
+  are gone, and the fix list's line numbers point at the code they describe again.
+
+### Compatibility
+
+- Minecraft 1.21.1 with NeoForge 21.1.x.
+- Waystones **21.1.45 or newer**.
+- FTB Teams and KubeJS are optional.
+- **0.3.0 changes the network protocol**: a 0.3.0 server refuses a 0.2.0 client and the other way round. Update the
+  server and every client together.
+- **Upgrading from 0.2.0** needs no world or config migration: the new data is either a network field or a cache the
+  server rebuilds by looking at tanks, and no saved data changed shape.
+
+### Known limitations
+
+- The remote preview can only repeat what the index last saw. A tank whose chunk has been unloaded for longer than
+  the freshness window is priced from a stale amount, so the final split can differ from what the button promised
+  by one purchase.
+- Editing or reading a tank still has no range check: a screen that was opened next to a tank keeps working after
+  the player is teleported away. Planned for the next round.
+- A team row for a team the viewer is not in still falls back to the full team UUID - FTB Teams has no name cache
+  to ask.
+- The FTB Teams member panel and the payload-registration handshake have still not been exercised on a machine with
+  FTB Teams installed.
+
 ### Tests
 
-- 55 unit tests, unchanged (the icon is a data-only asset).
+- 101 unit tests (0.2.0: 55), including the hint's three access states, the access decision, the wire caps, the
+  pool-amount choice, the name chain and the edit rights.
 
 ## 0.2.0 - 2026-10-11
 

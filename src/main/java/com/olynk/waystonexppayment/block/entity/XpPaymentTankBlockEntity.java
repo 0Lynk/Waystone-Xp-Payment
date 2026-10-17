@@ -181,11 +181,13 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     }
 
     /**
-     * Whether this player may change the tank's access list.
+     * Whether this player owns the tank or shares a team with its owner.
      *
-     * <p>Owner, or a player who shares any team with the owner. An unowned tank is open to everyone, because
-     * there is no owner to deny and the first successful edit claims it (see XppServerHandler). Nobody else,
-     * including operators, passes here - the op command path has its own permission check.
+     * <p>Deliberately not the whole edit rule: {@code XppServerHandler} asks this plus an operator escape hatch,
+     * because an operator has to be able to rescue a tank whose owner is gone. Keeping the exemption there and
+     * not here means there is one place that answers "who may edit", and this method answers the narrower
+     * question its callers actually ask. An unowned tank counts as editable by anyone, because there is no owner
+     * to deny and the first successful edit claims it.
      */
     public boolean canEdit(Player player) {
         UUID owner = ownerId;
@@ -217,20 +219,26 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     }
 
     /**
-     * Pool value as the server last computed it, for the client-side teleport preview.
-     *
-     * <p>The client has its own rate table but not the server's recipe manager, so a fluid declared only by a
-     * datapack recipe would look worthless there; the sync tag carries the authoritative number.
-     */
-    /**
      * XP the tank can pay with, as this side sees it.
      *
-     * <p>Preferred source is the live fluid contents through this side's own rate table, so draining the tank is
-     * reflected immediately. The server's number is only a fallback for fluids declared by a datapack recipe,
-     * whose rate the client's recipe view may not know.
+     * <p>The server's number wins whenever it has arrived: its rate table is the only one that knows fluids
+     * declared by a datapack recipe, and it computed that number from the same contents this tag carries, so it
+     * is not older than the local view. The local computation is what a single-player client has before the
+     * first sync tag lands.
      */
     public int poolXpForClient() {
-        return cachedPoolXp > 0 ? cachedPoolXp : Math.max(0, syncedPoolXp);
+        return pickPool(syncedPoolXp, cachedPoolXp);
+    }
+
+    /**
+     * Chooses between the server's number and this side's own computation.
+     *
+     * <p>{@code syncedPoolXp < 0} means "no sync tag has arrived"; it is not a pool of zero, which is why the
+     * choice cannot be {@code cached > 0 ? cached : synced} - that direction shows a stale server number for a
+     * tank this side has just watched run dry.
+     */
+    static int pickPool(int syncedPoolXp, int cachedPoolXp) {
+        return syncedPoolXp >= 0 ? syncedPoolXp : Math.max(0, cachedPoolXp);
     }
 
     /**
@@ -241,6 +249,17 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
      */
     public boolean hasSyncedData() {
         return hasSyncedData;
+    }
+
+    /**
+     * Whether a load tag carries the server's pool number.
+     *
+     * <p>Kept as a named predicate because "the key is absent" is a state, not a zero: the whole reason the
+     * preview has three answers instead of two. Testing it through {@link #loadAdditional} would need a live
+     * level, and this one condition is what everything else keys off.
+     */
+    static boolean carriesSyncedPool(CompoundTag tag) {
+        return tag.contains(SYNC_POOL_XP);
     }
 
     /** mB per XP for the fluid currently in the tank (falls back to the configured default). */
@@ -285,10 +304,12 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         int[] owner = tag.getIntArray(OWNER_ID);
         ownerId = owner.length == 4 ? UUIDUtil.uuidFromIntArray(owner) : null;
         ownerName = tag.getString(OWNER_NAME);
-        // Present only in the network sync tag (getUpdateTag), never in saved world data.
-        syncedPoolXp = tag.contains(SYNC_POOL_XP) ? Math.max(0, tag.getInt(SYNC_POOL_XP)) : -1;
+        // Present only in the network sync tag (getUpdateTag), never in saved world data. Its absence is the
+        // signal the preview reads as "no information yet", so this has to follow the tag, not the load path.
+        boolean carriesPool = carriesSyncedPool(tag);
+        syncedPoolXp = carriesPool ? Math.max(0, tag.getInt(SYNC_POOL_XP)) : -1;
         cachedPoolXp = FluidRates.xpValue(tank.getFluid());
-        hasSyncedData = true;
+        hasSyncedData = carriesPool;
         // A loaded chunk is the only chance to refresh the index for a slot nobody touched since the world was
         // saved; without this the index would only learn about tanks that keep changing.
         recordPoolInIndex();

@@ -44,11 +44,19 @@ public final class XppModEvents {
         }
     }
 
+    /**
+     * Wire protocol version, bumped whenever the payload set or any payload layout changes.
+     *
+     * <p>WHY a named constant: this is the one value every client and server must agree on, and it used to be a
+     * bare literal that no test or reader could find by name. Bumped 3 -&gt; 4 for the hint access tri-state and
+     * the dedicated {@code SET_MODE} field; a mismatch is refused during the handshake, which is far easier to
+     * diagnose than a byte stream that decodes into nonsense.
+     */
+    public static final String PROTOCOL_VERSION = "4";
+
     @SubscribeEvent
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        // Bumped from "2": the payload set changed again (the two tank-hint messages), and a version mismatch is
-        // refused during the handshake, which is far easier to diagnose than a byte stream that decodes into nonsense.
-        PayloadRegistrar registrar = event.registrar("3");
+        PayloadRegistrar registrar = event.registrar(PROTOCOL_VERSION);
         // The client class is only touched inside the handler, which never runs on a dedicated server.
         registrar.playToClient(XppStatePayload.TYPE, XppStatePayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> XppClientState.accept(payload)));

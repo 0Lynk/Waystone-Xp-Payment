@@ -85,18 +85,24 @@ public final class XppServerHandler {
             }
             List<XppTankHintPayload.Hint> hints = new ArrayList<>(payload.tankSlots().size());
             for (BlockPos slot : payload.tankSlots()) {
-                hints.add(hintFor(level, slot));
+                hints.add(hintFor(level, slot, player));
             }
             PacketDistributor.sendToPlayer(player, XppTankHintPayload.of(payload.dimension(), hints));
         });
     }
 
-    /** One slot's answer, without loading anything. */
-    private static XppTankHintPayload.Hint hintFor(ServerLevel level, BlockPos slot) {
+    /**
+     * One slot's answer, without loading anything.
+     *
+     * <p>The viewer is part of the question: a tank that exists but whose access list excludes this player must
+     * not have its pool quoted, and the client has no way to work that out on its own. The tri-state exists so
+     * "you may not use it" and "nobody can tell yet" stay distinguishable - only the first one may hide the tank.
+     */
+    private static XppTankHintPayload.Hint hintFor(ServerLevel level, BlockPos slot, ServerPlayer viewer) {
         boolean remoteEnabled = XppSettings.current().remoteDestinationPayments();
         if (level.isLoaded(slot)) {
             if (level.getBlockEntity(slot) instanceof XpPaymentTankBlockEntity tank) {
-                return new XppTankHintPayload.Hint(slot, tank.poolXp(), tank.mbPerXp());
+                return accessAwareHint(slot, tank, viewer);
             }
             if (remoteEnabled) {
                 // A resident chunk that has no tank is a fact worth keeping: it is what spares the next query
@@ -108,16 +114,33 @@ public final class XppServerHandler {
             return XppTankHintPayload.Hint.none(slot);
         }
         if (!remoteEnabled) {
-            // With the feature off the server itself will not load this chunk to pay, so "not payable from
-            // here" is the honest quote even though a tank might exist.
-            return XppTankHintPayload.Hint.none(slot);
+            // The server will not load this chunk to pay, so it genuinely cannot tell what sits there. Reported
+            // as UNKNOWN rather than "no tank": claiming absence would hide a tank that is in fact present.
+            return XppTankHintPayload.Hint.unknown(slot);
         }
         TankPoolIndex.Pool recorded = TankPoolIndex.get(level.getServer())
                 .get(level.dimension().location(), slot);
         if (recorded == null) {
             return XppTankHintPayload.Hint.unknown(slot);
         }
-        return new XppTankHintPayload.Hint(slot, recorded.poolXp(), recorded.mbPerXp());
+        // A recorded amount says nothing about who may use it, so the access question stays open here.
+        return new XppTankHintPayload.Hint(slot, recorded.poolXp(), recorded.mbPerXp(),
+                XppTankHintPayload.Access.UNKNOWN);
+    }
+
+    /** Quotes a resident tank's pool only to a viewer the access list admits. */
+    private static XppTankHintPayload.Hint accessAwareHint(BlockPos slot, XpPaymentTankBlockEntity tank,
+                                                           ServerPlayer viewer) {
+        TeamResolver resolver = TeamResolvers.get();
+        boolean allowed = tank.access().allows(viewer, resolver);
+        XppTankHintPayload.Access access = HintAccessRule.of(allowed, resolver.available(),
+                !tank.access().teams().isEmpty());
+        if (access == XppTankHintPayload.Access.DENIED) {
+            // The position is reported so the client can stop asking; the amount is not, because this player
+            // cannot spend it and quoting it would leak the owner's stock to anyone who right-clicks a waystone.
+            return XppTankHintPayload.Hint.denied(slot);
+        }
+        return new XppTankHintPayload.Hint(slot, tank.poolXp(), tank.mbPerXp(), access);
     }
 
     /**
@@ -165,7 +188,7 @@ public final class XppServerHandler {
         // The owner check protects every action, REFRESH included: a snapshot of a tank you may not edit is
         // still the owner's business, and one gate in one place cannot be forgotten in a later branch.
         boolean changed = switch (payload.action()) {
-            case SET_MODE -> setMode(tank, payload);
+            case SET_MODE -> setMode(tank, player, payload);
             case ADD_PLAYER -> addPlayer(tank, player, payload);
             case REMOVE_PLAYER -> removePlayer(tank, player, payload);
             case ADD_TEAM -> addTeam(tank, player, payload);
@@ -196,9 +219,20 @@ public final class XppServerHandler {
         tank.setChanged();
     }
 
-    /** Flips the whitelist flag; true only when the mode actually changed, so a no-op does not claim a tank. */
-    private static boolean setMode(XpPaymentTankBlockEntity tank, XppAccessPayload payload) {
-        boolean whitelist = !"blacklist".equalsIgnoreCase(payload.label());
+    /**
+     * Applies the requested mode; true only when it actually changed, so a no-op does not claim a tank.
+     *
+     * <p>The mode arrives as its own field. It used to be inferred from {@code payload.label()} being the string
+     * "blacklist", which made a permission rule depend on display text; a missing field is now refused instead of
+     * silently defaulting to whitelist.
+     */
+    private static boolean setMode(XpPaymentTankBlockEntity tank, ServerPlayer player, XppAccessPayload payload) {
+        XppAccessPayload.Mode mode = payload.mode();
+        if (mode == null) {
+            log(tank, player, "refused SET_MODE without a mode", payload.target(), payload.label());
+            return false;
+        }
+        boolean whitelist = mode == XppAccessPayload.Mode.WHITELIST;
         if (tank.access().isWhitelist() == whitelist) {
             return false;
         }

@@ -35,7 +35,7 @@ public record XppMembersPayload(BlockPos pos, UUID teamId, String teamLabel, byt
      * <p>Not a team limit: past this the packet grows without bound on a server that lets anyone create teams,
      * and no five-row panel can show that many rows usefully anyway.
      */
-    public static final int MAX_MEMBERS = 256;
+    public static final int MAX_MEMBERS = XppWireLimits.MAX_LIST;
 
     /** One member row. {@code name} is the server's best label: a game profile name, or a UUID prefix. */
     public record Member(UUID id, String name, boolean online) {
@@ -49,13 +49,13 @@ public record XppMembersPayload(BlockPos pos, UUID teamId, String teamLabel, byt
             (buffer, payload) -> {
                 buffer.writeBlockPos(payload.pos());
                 UUIDUtil.STREAM_CODEC.encode(buffer, payload.teamId());
-                buffer.writeUtf(payload.teamLabel(), 64);
+                buffer.writeUtf(XppWireLimits.text(payload.teamLabel()), XppWireLimits.MAX_TEXT_BYTES);
                 buffer.writeByte(payload.status());
                 buffer.writeLong(payload.requestId());
                 buffer.writeVarInt(payload.members().size());
                 for (Member member : payload.members()) {
                     UUIDUtil.STREAM_CODEC.encode(buffer, member.id());
-                    buffer.writeUtf(member.name(), 64);
+                    buffer.writeUtf(XppWireLimits.text(member.name()), XppWireLimits.MAX_TEXT_BYTES);
                     buffer.writeBoolean(member.online());
                 }
             },

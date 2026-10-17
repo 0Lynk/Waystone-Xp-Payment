@@ -116,11 +116,13 @@ public final class XppClientRequirements {
         if (hint == null || !hint.known()) {
             XppTankHints.request(dimension, tankPos);
         }
-        return hint != null && hint.hasTank() ? new TankRef(tankPos, dimension, null) : null;
+        // mayPay(), not hasTank(): a tank the server says this player may not use is not a payer, and the
+        // difference between "you may not" and "not known yet" is the whole reason the answer carries a tri-state.
+        return hint != null && hint.mayPay() ? new TankRef(tankPos, dimension, null) : null;
     }
 
     /**
-     * A tank can only pay when it holds something.
+     * A tank can only pay when it holds something and admits this player.
      *
      * <p>For a tank whose contents are not here, the last server answer decides: an explicit empty pool is a real
      * "no payer" rather than an unknown, which is the one case that must not stay permissive.
@@ -134,7 +136,13 @@ public final class XppClientRequirements {
             return ref.loaded().getTank().isEmpty() ? null : ref;
         }
         XppTankHintPayload.Hint hint = XppTankHints.hint(ref.dimension(), ref.pos());
-        if (hint != null && hint.hasTank() && hint.poolXp() <= 0) {
+        if (hint == null) {
+            return ref;
+        }
+        if (hint.access() == XppTankHintPayload.Access.DENIED) {
+            return null;
+        }
+        if (hint.hasTank() && hint.poolXp() <= 0) {
             return null;
         }
         return ref;

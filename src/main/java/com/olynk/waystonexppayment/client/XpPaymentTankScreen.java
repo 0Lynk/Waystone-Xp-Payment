@@ -254,9 +254,9 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
     protected void init() {
         super.init();
         this.modeButton = addRenderableWidget(new AccessButton(modeLabel(), COLOR_MUTED,
-                button -> sendEdit(XppAccessPayload.Action.SET_MODE, null,
-                        state != null && state.whitelist() ? "blacklist" : "whitelist",
-                        state == null || !state.whitelist())));
+                button -> sendModeEdit(state != null && state.whitelist()
+                        ? XppAccessPayload.Mode.BLACKLIST
+                        : XppAccessPayload.Mode.WHITELIST)));
         this.modeButton.setPosition(leftPos + 8, topPos + 54);
         this.modeButton.setSize(84, 20);
         this.addMeButton = addRenderableWidget(new AccessButton(Component.translatable("access.add_me"),
@@ -572,13 +572,37 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
     }
 
     private void send(XppAccessPayload.Action action, @Nullable UUID target, String label) {
-        send(action, target, label, 0L);
+        send(action, null, target, label, 0L);
     }
 
     private void send(XppAccessPayload.Action action, @Nullable UUID target, String label, long requestId) {
+        send(action, null, target, label, requestId);
+    }
+
+    private void send(XppAccessPayload.Action action, @Nullable XppAccessPayload.Mode mode,
+                      @Nullable UUID target, String label, long requestId) {
         if (state != null) {
-            PacketDistributor.sendToServer(new XppAccessPayload(state.pos(), action, target, label, requestId));
+            PacketDistributor.sendToServer(
+                    new XppAccessPayload(state.pos(), action, mode, target, label, requestId));
         }
+    }
+
+    /**
+     * Sends the {@code SET_MODE} request.
+     *
+     * <p>The mode is a value now; the label is only what the server log prints, so a reworded or translated
+     * label can never change which rule the server applies.
+     */
+    private void sendModeEdit(XppAccessPayload.Mode mode) {
+        if (pending != null) {
+            return;
+        }
+        String label = mode == XppAccessPayload.Mode.WHITELIST ? "whitelist" : "blacklist";
+        pending = new PendingRequest(XppAccessPayload.Action.SET_MODE, Collections.singletonList(null), label,
+                mode == XppAccessPayload.Mode.WHITELIST, Util.getMillis());
+        setStatus(StatusKind.SENDING);
+        send(XppAccessPayload.Action.SET_MODE, mode, null, label, 0L);
+        refreshWidgets();
     }
 
     /**

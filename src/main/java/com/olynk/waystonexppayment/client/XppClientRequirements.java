@@ -1,6 +1,9 @@
 package com.olynk.waystonexppayment.client;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
@@ -97,28 +100,84 @@ public final class XppClientRequirements {
      * <p>Reasons to believe, in the order they are trusted: what this client saw itself, then what the server last
      * reported for that slot. A slot the server has never answered for is unknown, not empty - but it is also not
      * evidence enough to light the button, so it is queued for one question and the entry stays gated this round.
+     *
+     * <p>Two candidates, because a waystone in an unloaded chunk has an unknown shape: the tank hangs either one
+     * or two blocks down ({@link TankPlacement}), and pressing the button is only worth offering when at least one
+     * of them can pay. Both are asked about, so the entry un-greys one tick after the server answers, whichever
+     * slot the tank is in.
      */
     private static TankRef tankBelow(Level level, Waystone waystone) {
         if (waystone == null || !waystone.getDimension().equals(level.dimension())) {
             // Cross-dimension destinations are not loaded on this client; their entry stays gated.
             return null;
         }
-        BlockPos tankPos = TankPlacement.tankPosFor(level, waystone);
-        if (level.getBlockEntity(tankPos) instanceof XpPaymentTankBlockEntity tank) {
-            XppClientTankRegistry.remember(level, tankPos);
-            return new TankRef(tankPos, waystone.getDimension().location(), tank);
-        }
         ResourceLocation dimension = waystone.getDimension().location();
-        if (XppClientTankRegistry.knows(waystone.getDimension(), tankPos)) {
-            return new TankRef(tankPos, dimension, null);
+        List<BlockPos> candidates = TankPlacement.candidateTankPositions(level, waystone.getPos());
+        for (BlockPos candidate : candidates) {
+            if (level.isLoaded(candidate)
+                    && level.getBlockEntity(candidate) instanceof XpPaymentTankBlockEntity tank) {
+                XppClientTankRegistry.remember(level, candidate);
+                return new TankRef(candidate, dimension, tank);
+            }
+            // Only the slots this client cannot see are worth a question, and request() drops slots that already
+            // have an answer, so asking costs nothing once the server has spoken.
+            if (!level.isLoaded(candidate)) {
+                XppTankHints.request(dimension, candidate);
+            }
         }
-        XppTankHintPayload.Hint hint = XppTankHints.hint(dimension, tankPos);
-        if (hint == null || !hint.known()) {
-            XppTankHints.request(dimension, tankPos);
+        BlockPos believed = selectPayerSlot(candidates,
+                candidate -> XppClientTankRegistry.knows(waystone.getDimension(), candidate),
+                candidate -> XppTankHints.hint(dimension, candidate));
+        return believed == null ? null : new TankRef(believed, dimension, null);
+    }
+
+    /**
+     * The candidate slot this client should treat as the payer, or {@code null} when nothing is known yet.
+     *
+     * <p>Split from {@link #tankBelow} so the choice can be unit tested without a client world:
+     * {@link BlockPos} and {@link XppTankHintPayload.Hint} are plain data.
+     *
+     * <p>Two rounds on purpose. A slot this client has seen itself is ground truth, a server hint is a cached
+     * answer, and when the waystone's shape is unknown the tank is as likely to be the second candidate as the
+     * first - so a hint on the first must not shadow the tank this client remembers on the second.
+     *
+     * @param candidates slots to consider, in preference order
+     * @param seenHere whether this client has already seen a tank at that slot
+     * @param hintOf the last server answer for that slot, or {@code null} when there is none yet
+     */
+    @Nullable
+    static BlockPos selectPayerSlot(List<BlockPos> candidates, Predicate<BlockPos> seenHere,
+                                    Function<BlockPos, XppTankHintPayload.Hint> hintOf) {
+        for (BlockPos candidate : candidates) {
+            if (seenHere.test(candidate)) {
+                return candidate;
+            }
         }
-        // mayPay(), not hasTank(): a tank the server says this player may not use is not a payer, and the
-        // difference between "you may not" and "not known yet" is the whole reason the answer carries a tri-state.
-        return hint != null && hint.mayPay() ? new TankRef(tankPos, dimension, null) : null;
+        for (BlockPos candidate : candidates) {
+            if (paysFrom(hintOf.apply(candidate))) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether a server answer is evidence of a payer.
+     *
+     * <p>Stricter than {@link XppTankHintPayload.Hint#mayPay()} in exactly one point: a tank the server measured as
+     * empty is not a payer here. That matters with two candidates - a known-empty tank on one of them must not
+     * shadow a tank the other one might hold - and it is the same rule {@link #payerAt} applies to a remembered
+     * slot, so "empty" cannot mean one thing on the way in and another on the way out.
+     *
+     * <p>{@code mayPay()} itself is the right base: it only rules out "you may not use it" and "nothing is there",
+     * and leaves an unanswered pool permissive - an unvisited far-away tank must not grey the button out.
+     */
+    private static boolean paysFrom(@Nullable XppTankHintPayload.Hint hint) {
+        if (hint == null || !hint.mayPay()) {
+            return false;
+        }
+        boolean measuredEmpty = hint.hasTank() && hint.poolXp() <= 0;
+        return !measuredEmpty;
     }
 
     /**
@@ -137,15 +196,11 @@ public final class XppClientRequirements {
         }
         XppTankHintPayload.Hint hint = XppTankHints.hint(ref.dimension(), ref.pos());
         if (hint == null) {
+            // No answer yet: permissive on purpose. The client only decides whether the button lights up; the
+            // server reads the tank for real and is the one that can refuse.
             return ref;
         }
-        if (hint.access() == XppTankHintPayload.Access.DENIED) {
-            return null;
-        }
-        if (hint.hasTank() && hint.poolXp() <= 0) {
-            return null;
-        }
-        return ref;
+        return paysFrom(hint) ? ref : null;
     }
 
     /** Waystone dimension and position for diagnostics, or {@code none}. */

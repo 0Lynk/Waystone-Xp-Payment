@@ -170,29 +170,19 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
 
     /**
      * Best label for a stored player UUID: the sending player's own name, then whoever is online under it, then
-     * the name the profile cache still remembers after logout, then a short id.
+     * the name the profile cache still remembers, then a short id.
      *
      * <p>WHY the cache is in the chain: without it every member who logged off turned into a raw 36-character
-     * UUID on their row, which is the exact case {@link PlayerNames#remembered} exists for.
+     * UUID on their row, which is the exact case {@link PlayerNames#remembered} exists for. The precedence itself
+     * is {@link PlayerNames#label}, shared with the team member list.
      */
     private static String labelForPlayer(ServerPlayer viewer, UUID playerId) {
         if (playerId.equals(viewer.getUUID())) {
             return viewer.getGameProfile().getName();
         }
         ServerPlayer online = viewer.server.getPlayerList().getPlayer(playerId);
-        return labelFor(playerId, online == null ? null : online.getGameProfile().getName(),
+        return PlayerNames.label(playerId, online == null ? null : online.getGameProfile().getName(),
                 PlayerNames.remembered(viewer.server, playerId));
-    }
-
-    /** The precedence itself, without a server to ask: a live name, then a remembered one, then the short id. */
-    static String labelFor(UUID id, @Nullable String onlineName, @Nullable String rememberedName) {
-        if (onlineName != null && !onlineName.isBlank()) {
-            return onlineName;
-        }
-        if (rememberedName != null && !rememberedName.isBlank()) {
-            return rememberedName;
-        }
-        return PlayerNames.shortId(id);
     }
 
     /**

@@ -13,9 +13,10 @@ import net.minecraft.server.players.GameProfileCache;
 /**
  * Names for a UUID the server has no live player object for.
  *
- * <p>WHY one helper: the access rows and the team member rows both render a stored UUID, and both printed the
- * raw id the moment its owner logged off. The profile cache is the only source that still knows the name after
- * logout, so every row asks this question through the same place instead of each deciding its own fallback.
+ * <p>WHY one helper: the access rows and the team member rows both render a stored UUID, and the fallback for a
+ * player who logged off was written out twice - the team list already went profile cache to short id, while the
+ * access list skipped the cache and printed the raw id. The cache is the only source that still knows the name
+ * after logout, so the whole chain lives here once and both lists ask the same question.
  */
 public final class PlayerNames {
     private PlayerNames() {
@@ -25,7 +26,8 @@ public final class PlayerNames {
      * The name the server remembers for {@code id}, or {@code null} when it has no record of them.
      *
      * <p>Null server and null cache are both possible (no profile repository configured); nothing here may
-     * depend on either existing, and a caller that gets {@code null} falls back to {@link #shortId(UUID)}.
+     * depend on either existing. A caller that gets {@code null} hands it to {@link #label}, which ends the
+     * chain at {@link #shortId(UUID)}.
      */
     @Nullable
     public static String remembered(@Nullable MinecraftServer server, UUID id) {
@@ -38,6 +40,22 @@ public final class PlayerNames {
         }
         Optional<GameProfile> profile = cache.get(id);
         return profile.map(GameProfile::getName).filter(name -> !name.isBlank()).orElse(null);
+    }
+
+    /**
+     * Row label for a stored id: a live name, then one the profile cache remembers, then a short id.
+     *
+     * <p>WHY the two names arrive as arguments: this is the rule the access list and the team member list have to
+     * share, and neither of them has a running server to exercise it against in a test.
+     */
+    public static String label(UUID id, @Nullable String onlineName, @Nullable String rememberedName) {
+        if (onlineName != null && !onlineName.isBlank()) {
+            return onlineName;
+        }
+        if (rememberedName != null && !rememberedName.isBlank()) {
+            return rememberedName;
+        }
+        return shortId(id);
     }
 
     /**

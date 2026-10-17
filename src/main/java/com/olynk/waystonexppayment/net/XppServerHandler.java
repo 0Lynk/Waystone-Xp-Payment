@@ -50,7 +50,7 @@ public final class XppServerHandler {
             // ends up with the truth on screen instead of whatever it had optimistically drawn. Operators stay
             // allowed as well - the op path is the admin escape hatch for a tank whose owner is gone, and the
             // two rights are independent, so the gate has to accept either one.
-            boolean permitted = tank.canEdit(player) || player.hasPermissions(2);
+            boolean permitted = tank.canEditOrOp(player);
             if (payload.action() == XppAccessPayload.Action.REQUEST_MEMBERS) {
                 answerMembers(tank, player, payload, permitted);
                 return;

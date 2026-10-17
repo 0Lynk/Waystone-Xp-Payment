@@ -181,13 +181,13 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     }
 
     /**
-     * Whether this player owns the tank or shares a team with its owner.
+     * Whether this player owns the tank or shares a team with its owner. Operators are not included here.
      *
-     * <p>Deliberately not the whole edit rule: {@code XppServerHandler} asks this plus an operator escape hatch,
-     * because an operator has to be able to rescue a tank whose owner is gone. Keeping the exemption there and
-     * not here means there is one place that answers "who may edit", and this method answers the narrower
-     * question its callers actually ask. An unowned tank counts as editable by anyone, because there is no owner
-     * to deny and the first successful edit claims it.
+     * <p>WHY the operator escape hatch sits in {@link #canEditOrOp(Player)}: both callers - the state packet
+     * that decides whether the screen enables its buttons, and the edit handler that decides whether to apply
+     * the change - used to compute the rule separately, so an operator got a locked screen against a server
+     * that would have accepted the edit. An unowned tank counts as editable by anyone, because there is no
+     * owner to deny and the first successful edit claims it.
      */
     public boolean canEdit(Player player) {
         UUID owner = ownerId;
@@ -211,6 +211,22 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
             }
         }
         return false;
+    }
+
+    /**
+     * Whether {@code player} may change this tank's access list: owner, team mate, or operator.
+     *
+     * <p>WHY both callers go through this one method: the state packet decides whether the screen enables its
+     * buttons and {@code XppServerHandler} decides whether to apply the edit. Two computations of the same rule
+     * is exactly how they drifted apart.
+     */
+    public boolean canEditOrOp(Player player) {
+        return editAllowed(canEdit(player), player.hasPermissions(2));
+    }
+
+    /** The rule without a player to ask: whoever the tank admits, or an operator's escape hatch. */
+    static boolean editAllowed(boolean ownerOrTeamMate, boolean operator) {
+        return ownerOrTeamMate || operator;
     }
 
     /** XP value of the whole tank, at the rates currently configured for its fluid. */

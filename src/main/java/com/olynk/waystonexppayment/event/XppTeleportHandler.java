@@ -148,6 +148,8 @@ public final class XppTeleportHandler {
         if (!budget.requestLoad(slot, now)) {
             // Budget spent, or this slot already missed a moment ago: fall back to the player instead of paying
             // for the same fruitless load twice.
+            WaystoneXpPaymentMod.LOGGER.debug("Not loading the chunk at {} for a payment tank: the load budget is "
+                    + "spent or this slot just missed", waystonePos.toShortString());
             return null;
         }
         WaystoneXpPaymentMod.LOGGER.debug("Loading the chunk at {} to reach the payment tank below a waystone",

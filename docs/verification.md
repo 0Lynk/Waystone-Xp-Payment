@@ -3,8 +3,9 @@
 Every claim in `README.md` / `CHANGELOG.md` should be traceable to something below. Commands are the ones
 actually run; the environment caveats that change how a command looks are stated where they matter.
 
-**Current release: 0.2.0.** Section 0 below is the record for it; sections 1-4 were written for 0.1.0 and are
-kept as they stand. Where the two disagree on a number (test count, jar size), section 0 wins.
+**Current release: 0.3.0.** Section 0.3 below is the record for it; section 0 is the 0.2.0 record; sections 1-4 were
+written for 0.1.0 and are kept as they stand. Where they disagree on a number (test count, jar size), section 0.3 wins,
+then section 0, then the older ones.
 
 ## 0. The 0.2.0 release (2026-10-11)
 
@@ -45,6 +46,37 @@ test can load its targets, `build.gradle`'s `test` task now adds `sourceSets.mai
   assumed, not measured.
 - Everything in section 3's "Not covered by this smoke test" still stands for 0.2.0: no player teleports, no
   client, no pipe-filled tank.
+
+## 0.3 版本记录（0.3.0：2026-10-17 发布，2026-10-19 实机验收）
+
+0.3.0 把两端协议从 3 跳到 4（目的地罐客户端提示 + 预加载查询），并修掉「未加载区块里目的罐被判到错槽位」「源端无罐时第一次点击必失败」「成功加载被记成失手」三项。改动清单见 `docs/变更记录/2026-10-17_发布0.3.0.md`，实机账目见 `docs/测试记录/2026-10-19_0.3.0实机验收.md`。本节只收可复核的事实。
+
+| step | command | result |
+|---|---|---|
+| 构建 | `gradle build --offline`（沙箱外：`GRADLE_USER_HOME=D:\deepseek\.gradle-home`、`JAVA_TOOL_OPTIONS='-Duser.language=en -Duser.country=US'`） | `build\libs\waystone_xp_payment-0.3.0+mc1.21.1.jar`，**192,657 B**，sha256 `07d698351fc290e859b1de9b1e95d762e48eece6bb8b6e1973030f865b5285d5`，mtime 2026-10-19 22:35 |
+| 单测 | 同一次 build；解析 `build\test-results\test\*.xml`（20 个类，全部写于 22:35:42） | **119 tests / 0 failures / 0 errors / 0 skipped** |
+| jar 内版本 | 解 jar 读 `META-INF/neoforge.mods.toml` | `version = "0.3.0"` |
+| 已发布资产 | GitHub Release `v0.3.0`（id 415645925，tag `54aac34`，2026-10-17T07:11:42Z） | 唯一资产 `waystone_xp_payment-0.3.0+mc1.21.1.jar`，**189,878 B**，`digest=sha256:71fb6dbeb0fb6e0ebd65859114b0bc82ac980c24529617417b08f290174bf818`，下载数 1；下载到本地实测 hash 与 digest 一致 |
+| 三处部署（实际六处逐一比对） | 正式服 `D:\Minecraft\重度机霸症Server\mods\`；客户端 `PrismLauncher-…-11.1.1\instances\{1.21.1,1.21.1-fork}\minecraft\mods\`；客户端 `ShatteredPrism-…-1.9.1\instances\{1.21.1,1.21.1-fork}\minecraft\mods\`；本仓 `build\libs\` | 六处全部 **192,657 B / `07d69835…`**，一致（`instances\中毒机霸症\` 是未更新的旧测试实例，仍留 0.2.0） |
+| **附件 vs 部署产物** | 直接读两个 jar 的条目表与类大小（`System.IO.Compression`） | **❌ 不一致**：126 vs **127** 条目；`payment/TankPlacement$RecordedHalf.class` **仅部署 jar 有**；`TankPlacement.class` 1,355→**2,741** B；`PayerBudget.class` 2,760→**2,878** B；`event/XppTeleportHandler.class` 8,745→**10,137** B；两者 `neoforge.mods.toml` 都写 `0.3.0` |
+| 实机验收（服务端日志） | `Select-String latest.log -Pattern 'paid from the destination tank'` | 7 条，目的地罐坐标全为 `1186, 64, 1212`；其中两组间隔 < 5 s（4.108 s / 4.798 s）均由目的地罐付款 |
+
+### 0.3.0 的产物身份问题（先看这条再信其他数字）
+
+**已发布的 0.3.0 附件不是被验收的那个 jar。** tag `v0.3.0` 打在 `54aac34`，而部署与验收用的是其后 4 个提交（`c60e2dc` 未加载区块罐位候选、`85c3406` 驻留区块不耗配额、`4710981` 只为失手记防抖、`2afeb49` 归因与拒绝加载日志）构建的 `2afeb49`。换言之第四~六轮（M3/M4/M5）的修复只存在于部署产物，**不在任何已发布资产里**。直接后果：`测试流程.md` 的 I2 与 I4 均不通过；任何人从 Release 安装都会装到仍会把未加载区块的目的地罐判到错槽位的版本。本条的结论是「对外分发未放行」，只影响已经装在六处的 HEAD 构建。
+
+### Not verified for 0.3.0（不要声称验证过）
+
+- **已发布的 Release 附件从未在任何环境跑过**（下载数 1 就是本次核对自己下的）。
+- E7（等级要求仍由玩家出）、E8（并发双人同罐）**未测**；E8 记为「未测（环境受限）」，理由见测试记录 §6 —— `E-1` 缺陷未修，双客户端两账号条件已具备，只差同 tick 时序，不能记成「不需要测」。
+- E3（罐+玩家都不够）、E4（rollback 不吞流体）、E6（创造模式免费）**只有口头**：这三条走的是静默分支，日志里 `cannot pay`/`DENIED`/`not enough`/`Insufficient`/`rollback` 各 0 条，缺失败前后 `/xp query` 与 `/data get block`。
+- M1（非 owner 的 OP 编辑他人罐，D6/C-1）本轮未复测，上一轮为口头通过 —— **证据不足，不算闭环**。
+- 界面（F 组全部状态）、成员面板（M2）、D3/D4/D5/D7/D8/D10 本轮无截图。
+- E13（同一目的地 5 s 内只加载一次）未取证；E14/E15/E16 未测，协议 3→4 的握手实测仍未做。
+- 未修项：`E-1`（零代价窗口）、`D9`/`F7`（越距校验）、`S6`（汇率重建后 `cachedPoolXp` 不重算）、`Q-7`（队伍条目 UUID 回落到 36 字符）。
+- 0.2.0 遗留仍然成立：FTB Teams 反射路径从未在装了 FTB Teams 的游戏里跑过；`registrar("4")` 是否参与 NeoForge 的 payload 版本握手仍是假设。
+
+
 
 ## 1. Build (0.1.0)
 

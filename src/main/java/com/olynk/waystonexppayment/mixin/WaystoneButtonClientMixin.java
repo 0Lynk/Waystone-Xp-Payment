@@ -3,14 +3,12 @@ package com.olynk.waystonexppayment.mixin;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.client.ClientFluidPaymentRequirement;
-import com.olynk.waystonexppayment.client.PaymentGreyState;
 
 import net.blay09.mods.waystones.api.requirement.WarpRequirement;
 import net.blay09.mods.waystones.client.gui.widget.WaystoneButton;
@@ -20,15 +18,18 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * Keeps an open waystone list honest while the tank behind it changes.
+ * Derives a button's clickable state from the tank, every frame, instead of remembering it.
  *
- * <p>Waystones decides a button's {@code active} state once, when the entry is built, so draining the tank while
- * the screen is open would leave a button that looks clickable and then fails on click. Re-checking here costs a
- * field read per rendered button, because the tank's XP value is cached in the block entity and refreshed only
- * when its contents change.
+ * <p>Waystones decides {@code active} once, when the entry is built, so draining the tank while the screen is open
+ * would leave a button that looks clickable and then fails on click. Re-deriving costs one split per rendered
+ * button, which measures at tens of nanoseconds and reads the tank's cached XP value.
  *
- * <p>Grey is taken and given back by the same rule ({@link PaymentGreyState}): the button is re-enabled once the
- * tank pays again, but only when this mixin was the one that turned it off.
+ * <p>Why this is a plain {@code &&} and not a "who greyed it" ledger: for the buttons this mixin touches, Waystones'
+ * own verdict and the tank's affordability are the same answer. The other two ways Waystones greys a button - a
+ * null player, and the waystone you are standing on - can never reach this code: the first cannot render a widget,
+ * and the second keeps the vanilla requirement (see {@code XppClientRequirements.decorate}), so the
+ * {@code instanceof} below never matches it. A ledger of past decisions would therefore only be re-deriving a
+ * constant, and the one this mod kept is what turned a single unaffordable frame into a permanently dead button.
  */
 @Mixin(WaystoneButton.class)
 public class WaystoneButtonClientMixin {
@@ -36,9 +37,6 @@ public class WaystoneButtonClientMixin {
     @Shadow
     @Final
     private WarpRequirement warpRequirement;
-
-    @Unique
-    private PaymentGreyState xpp$greyState;
 
     @Inject(method = "renderWidget", at = @At("HEAD"))
     private void xpp$applyPaymentState(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks,
@@ -55,23 +53,13 @@ public class WaystoneButtonClientMixin {
         // button was constructed, which took the whole screen - and the client - down. The field is public,
         // so reaching it through the supertype is all that is needed.
         AbstractWidget widget = (AbstractWidget) (Object) this;
-        Boolean next = xpp$greyState().nextActive(requirement.canAfford(player), widget.active);
-        if (next == null) {
+        boolean affordable = requirement.canAfford(player);
+        if (widget.active == affordable) {
             return;
         }
-        widget.active = next;
+        widget.active = affordable;
         // Only on a transition: this runs every frame, and the numbers are what makes a grey button explainable.
-        WaystoneXpPaymentMod.LOGGER.info("[client] {} this entry: {}", next ? "re-enabled" : "greyed out",
+        WaystoneXpPaymentMod.LOGGER.info("[client] {} this entry: {}", affordable ? "re-enabled" : "greyed out",
                 requirement.describeAffordability(player));
-    }
-
-    @Unique
-    private PaymentGreyState xpp$greyState() {
-        // Not a field initializer: Mixin merges those into the constructor, which is exactly where a
-        // half-built field would already be readable by Waystones' own affordability check.
-        if (xpp$greyState == null) {
-            xpp$greyState = new PaymentGreyState();
-        }
-        return xpp$greyState;
     }
 }

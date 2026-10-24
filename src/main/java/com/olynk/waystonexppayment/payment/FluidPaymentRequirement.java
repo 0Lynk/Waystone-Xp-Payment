@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.fluid.FluidRates;
 
@@ -22,9 +23,12 @@ import net.neoforged.neoforge.fluids.FluidStack;
  * <p>The tank is resolved lazily from its level/position on every call: a teleport may be validated on one
  * tick and consumed on another, so holding a BlockEntity reference would risk touching stale state.
  *
- * <p>{@link #canAfford(Player)} is intentionally side-effect free. That is what makes the "pool + player both
- * insufficient" case a clean rejection (Waystones reports NotEnoughXp and cancels the teleport) with nothing
- * to roll back.
+ * <p>{@link #canAfford(Player)} records the split it approved, and {@link #consume(Player)} settles that plan
+ * rather than re-deriving one. Waystones offers no way to abort a teleport once {@code consume} starts - throwing
+ * crashes the server, {@code rollback} is never called, and the only cancellation hook runs before the
+ * affordability check - so a second, stricter computation here could only choose between "teleport for free" and
+ * "crash". Recording the agreement is what makes the charge match the promise, and
+ * {@link PaymentSettlement} is what keeps the bill honest when the tank empties in between.
  */
 public final class FluidPaymentRequirement implements WarpRequirement {
 
@@ -33,6 +37,8 @@ public final class FluidPaymentRequirement implements WarpRequirement {
     private final BlockPos tankPos;
     private final int costXp;
 
+    @Nullable
+    private PaymentSplit agreed;
     private FluidStack paidFluid = FluidStack.EMPTY;
     private int paidPlayerXp;
     private boolean consumed;
@@ -68,28 +74,47 @@ public final class FluidPaymentRequirement implements WarpRequirement {
     @Override
     public boolean canAfford(Player player) {
         if (residual != null && !residual.canAfford(player)) {
+            agreed = null;
             return false;
         }
-        return split(player).affordable();
+        PaymentSplit split = split(player);
+        agreed = split.affordable() ? split : null;
+        return split.affordable();
     }
 
     @Override
     public void consume(Player player) {
-        PaymentSplit split = split(player);
-        if (!split.affordable()) {
-            // Never take a partial payment: Waystones only calls consume() after canAfford() agreed.
-            return;
-        }
+        // Never null outside a broken call order, and splitting again then is still better than charging nothing.
+        PaymentSplit plan = agreed != null ? agreed : split(player);
+        agreed = null;
 
         XpPaymentTankBlockEntity tank = tank();
-        if (tank != null && split.fluidUsedMb() > 0) {
-            paidFluid = tank.drainInternal(split.fluidUsedMb());
+        if (tank != null && plan.fluidUsedMb() > 0) {
+            paidFluid = tank.drainInternal(plan.fluidUsedMb());
         }
-        if (split.xpFromPlayer() > 0) {
-            player.giveExperiencePoints(-split.xpFromPlayer());
-            paidPlayerXp = split.xpFromPlayer();
+        PaymentSettlement settlement = PaymentSettlement.settle(plan, paidFluid.getAmount(), player.totalExperience);
+        if (settlement.xpFromPlayer() > 0) {
+            player.giveExperiencePoints(-settlement.xpFromPlayer());
+            paidPlayerXp = settlement.xpFromPlayer();
         }
         consumed = true;
+
+        if (!settlement.isComplete()) {
+            // Nothing else can stop the teleport at this point, so the alternative to a loud log is a silent free
+            // ride: the player is already at the destination by now.
+            WaystoneXpPaymentMod.LOGGER.error("Teleport from the tank at {} was paid short: tank gave {} of {} mB, "
+                            + "player {} paid {} XP, {} XP went unpaid", tankPos.toShortString(),
+                    paidFluid.getAmount(), plan.fluidUsedMb(), player.getGameProfile().getName(),
+                    settlement.xpFromPlayer(), settlement.xpStillOwed());
+        } else if (settlement.xpFromTank() < plan.xpFromFluid()) {
+            // Bill still settled, but not the way the plan promised: the tank emptied between the affordability
+            // check and here, and the player's own XP covered the gap. Worth a line - it is the same window, one
+            // size smaller than the case above.
+            WaystoneXpPaymentMod.LOGGER.warn("Tank at {} gave {} of {} mB after agreeing to pay {} XP; player {} "
+                            + "covered {} XP instead", tankPos.toShortString(), paidFluid.getAmount(),
+                    plan.fluidUsedMb(), plan.xpFromFluid(), player.getGameProfile().getName(),
+                    settlement.xpFromPlayer());
+        }
 
         if (residual != null) {
             residual.consume(player);

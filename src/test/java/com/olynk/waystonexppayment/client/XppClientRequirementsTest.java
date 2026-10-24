@@ -16,11 +16,15 @@ import com.olynk.waystonexppayment.payment.TankPlacement;
 import net.minecraft.core.BlockPos;
 
 /**
- * Which of the two possible tank slots the client offers as the payer.
+ * What the client preview decides before the server ever sees a click: which tank, if any, pays for this entry, and
+ * which entries must never be priced at all.
  *
- * <p>What this guards: with an unloaded waystone the tank can be in either slot, so the entry may only stay grey
- * when neither slot can pay - and a slot this client remembers seeing must not be dropped for a hint about the
+ * <p>What the slot tests guard: with an unloaded waystone the tank can be in either slot, so the entry may only stay
+ * grey when neither slot can pay - and a slot this client remembers seeing must not be dropped for a hint about the
  * other one.
+ *
+ * <p>What the self-target tests guard: the row for the waystone you are standing on is Waystones' own grey, and a
+ * payment preview that took it over would light it up again once the tank was refilled.
  */
 class XppClientRequirementsTest {
 

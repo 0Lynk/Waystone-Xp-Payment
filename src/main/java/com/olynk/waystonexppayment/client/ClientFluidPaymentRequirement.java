@@ -66,19 +66,26 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
 
     @Override
     public boolean canAfford(Player player) {
-        if (XppSettings.current().skipPaymentInCreative() && player.getAbilities().instabuild) {
-            // The server charges nothing for a creative player under its default config, and Waystones itself never
-            // greys a creative player's entries. Stay permissive rather than black out a free teleport; if a server
-            // turns the skip off, the mismatch costs one refused click, not a stuck button.
-            return residual == null || residual.canAfford(player);
-        }
         Integer poolXp = knownPoolXp();
-        if (poolXp != null && !PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), player.totalExperience)
-                .affordable()) {
+        boolean tankShort = poolXp != null
+                && !PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), player.totalExperience).affordable();
+        if (tankShort && !skipsPayment(player)) {
             return false;
         }
         // Everything except the XP cost still has to hold (cooldowns, item costs, ...).
         return residual == null || residual.canAfford(player);
+    }
+
+    /**
+     * Whether the server will charge this player nothing, which makes the tank's contents irrelevant here.
+     *
+     * <p>Waystones itself never greys a creative player's entries and the server skips the payment under
+     * {@code skipPaymentInCreative}, so blacking the entry out would refuse a teleport that is actually free.
+     * Following the config rather than {@code instabuild} alone keeps the two sides in step: a server that turned
+     * the skip off still charges, and the worst a stale client preview can do is let one click through to be refused.
+     */
+    private boolean skipsPayment(Player player) {
+        return XppSettings.current().skipPaymentInCreative() && player.getAbilities().instabuild;
     }
 
     /**

@@ -75,6 +75,21 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
     }
 
     /**
+     * Why this entry is grey, in numbers. Called only when the button flips, so a report of "still grey" can tell
+     * "the tank is short" from "the player is short".
+     */
+    public String describeAffordability(Player player) {
+        Integer poolXp = knownPoolXp();
+        int held = player.totalExperience;
+        if (poolXp == null) {
+            return "no pool reading here (server decides), player " + held + " XP, cost " + costXp + " XP";
+        }
+        PaymentSplit split = PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), held);
+        return "tank " + split.xpFromFluid() + " of " + poolXp + " XP, player " + split.xpFromPlayer() + " of "
+                + held + " XP, cost " + costXp + " XP";
+    }
+
+    /**
      * @return the pool this client can see, or {@code null} when it has no reading and the server must decide
      */
     @Nullable

@@ -1,9 +1,12 @@
 package com.olynk.waystonexppayment.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +32,9 @@ class XppClientRequirementsTest {
 
     private static final BlockPos NEAR = CANDIDATES.get(0);
     private static final BlockPos FAR = CANDIDATES.get(1);
+
+    private static final UUID SOURCE_UID = UUID.fromString("a1e73d9d-9163-4ca0-8497-1301eed23a9a");
+    private static final UUID TARGET_UID = UUID.fromString("0f3f7c2b-5b3d-4a1e-9c88-7d2b1f4e6a10");
 
     @Test
     void nothingKnownKeepsTheEntryGated() {
@@ -75,5 +81,22 @@ class XppClientRequirementsTest {
     void noTankAtEitherSlotIsNotAPayer() {
         assertNull(XppClientRequirements.selectPayerSlot(CANDIDATES, slot -> false,
                 XppTankHintPayload.Hint::none));
+    }
+
+    @Test
+    void theWaystoneYouStandOnIsNotATripToPrice() {
+        assertTrue(XppClientRequirements.isSameWaystone(SOURCE_UID, SOURCE_UID),
+                "Waystones greys that row itself; a payment preview would light it up on the next refill");
+    }
+
+    @Test
+    void aDifferentDestinationKeepsItsPreview() {
+        assertFalse(XppClientRequirements.isSameWaystone(SOURCE_UID, TARGET_UID));
+    }
+
+    @Test
+    void anUnknownSourceIsNotASelfTrip() {
+        assertFalse(XppClientRequirements.isSameWaystone(null, TARGET_UID),
+                "a warp item carries no source waystone, and every entry still needs its preview");
     }
 }

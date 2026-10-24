@@ -5,6 +5,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
+import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.net.XppTankHintPayload;
 import com.olynk.waystonexppayment.payment.PaymentSplit;
 
@@ -65,6 +66,12 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
 
     @Override
     public boolean canAfford(Player player) {
+        if (XppSettings.current().skipPaymentInCreative() && player.getAbilities().instabuild) {
+            // The server charges nothing for a creative player under its default config, and Waystones itself never
+            // greys a creative player's entries. Stay permissive rather than black out a free teleport; if a server
+            // turns the skip off, the mismatch costs one refused click, not a stuck button.
+            return residual == null || residual.canAfford(player);
+        }
         Integer poolXp = knownPoolXp();
         if (poolXp != null && !PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), player.totalExperience)
                 .affordable()) {

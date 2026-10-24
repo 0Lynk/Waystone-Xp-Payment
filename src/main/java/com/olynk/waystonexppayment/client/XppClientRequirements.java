@@ -2,6 +2,7 @@ package com.olynk.waystonexppayment.client;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -49,6 +50,12 @@ public final class XppClientRequirements {
         }
 
         Optional<Waystone> fromWaystone = context.getFromWaystone();
+        if (isSameWaystone(waystoneUid(fromWaystone.orElse(null)), waystoneUid(context.getTargetWaystone()))) {
+            // The entry for the waystone you are standing on is not a trip: Waystones greys it itself, and a
+            // payment preview here would both price a teleport to where you already are and hand the button back
+            // to us, so a refilled tank would make it clickable again.
+            return original;
+        }
         // Mirror the server's choice of payer: a usable tank under the source wins, otherwise the destination's.
         // "Usable" means not empty, because an empty tank is no payer on the server either.
         TankRef sourceTank = tankBelow(level, fromWaystone.orElse(null));
@@ -82,6 +89,20 @@ public final class XppClientRequirements {
                 costXp);
         return new ClientFluidPaymentRequirement(original, XpRequirementScanner.withoutXpCost(original), costXp,
                 payer.loaded(), payer.dimension(), payer.pos());
+    }
+
+    /**
+     * Whether the destination is the waystone the player is teleporting from.
+     *
+     * <p>A source the client never learned about (warp item, hotkey opening the list) is not a self-target, so the
+     * trip keeps its preview.
+     */
+    static boolean isSameWaystone(@Nullable UUID fromUid, @Nullable UUID targetUid) {
+        return fromUid != null && fromUid.equals(targetUid);
+    }
+
+    private static UUID waystoneUid(@Nullable Waystone waystone) {
+        return waystone == null ? null : waystone.getWaystoneUid();
     }
 
     /**

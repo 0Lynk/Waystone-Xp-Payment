@@ -50,7 +50,9 @@ public final class XppClientRequirements {
         }
 
         Optional<Waystone> fromWaystone = context.getFromWaystone();
-        if (isSameWaystone(waystoneUid(fromWaystone.orElse(null)), waystoneUid(context.getTargetWaystone()))) {
+        UUID fromUid = fromWaystone.map(Waystone::getWaystoneUid).orElse(null);
+        UUID targetUid = Optional.ofNullable(context.getTargetWaystone()).map(Waystone::getWaystoneUid).orElse(null);
+        if (isSameWaystone(fromUid, targetUid)) {
             // The entry for the waystone you are standing on is not a trip: Waystones greys it itself, and a
             // payment preview here would both price a teleport to where you already are and hand the button back
             // to us, so a refilled tank would make it clickable again.
@@ -60,8 +62,9 @@ public final class XppClientRequirements {
         // "Usable" means not empty, because an empty tank is no payer on the server either.
         TankRef sourceTank = tankBelow(level, fromWaystone.orElse(null));
         TankRef payer = payerAt(sourceTank);
-        TankRef targetTank = payer == null ? tankBelow(level, context.getTargetWaystone()) : null;
+        TankRef targetTank = null;
         if (payer == null) {
+            targetTank = tankBelow(level, context.getTargetWaystone());
             payer = payerAt(targetTank);
         }
         if (payer == null) {
@@ -99,10 +102,6 @@ public final class XppClientRequirements {
      */
     static boolean isSameWaystone(@Nullable UUID fromUid, @Nullable UUID targetUid) {
         return fromUid != null && fromUid.equals(targetUid);
-    }
-
-    private static UUID waystoneUid(@Nullable Waystone waystone) {
-        return waystone == null ? null : waystone.getWaystoneUid();
     }
 
     /**

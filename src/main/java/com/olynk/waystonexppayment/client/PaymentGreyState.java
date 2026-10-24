@@ -36,9 +36,8 @@ public final class PaymentGreyState {
             return null;
         }
         if (!affordable) {
-            boolean wasClickable = activeNow;
             greyedByPayment = true;
-            return wasClickable ? Boolean.FALSE : null;
+            return activeNow ? Boolean.FALSE : null;
         }
         if (!greyedByPayment) {
             return null;

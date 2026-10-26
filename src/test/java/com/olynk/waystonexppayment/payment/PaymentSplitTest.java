@@ -81,4 +81,15 @@ class PaymentSplitTest {
     void rateMustBeAtLeastOne() {
         assertThrows(IllegalArgumentException.class, () -> PaymentSplit.compute(10, 10, 0, 10));
     }
+
+    @Test
+    void anEmptyPoolIsExactlyTheVanillaRule() {
+        PaymentSplit enough = PaymentSplit.compute(27, 0, 1, 27);
+        PaymentSplit notEnough = PaymentSplit.compute(27, 0, 1, 26);
+
+        assertTrue(enough.affordable(), "an empty tank must never grey a trip the player can pay for alone");
+        assertFalse(notEnough.affordable());
+        assertEquals(0, enough.fluidUsedMb());
+        assertEquals(27, enough.xpFromPlayer());
+    }
 }

@@ -23,7 +23,8 @@ import net.minecraft.world.entity.player.Player;
  * <p>The payer is a *loaded* tank, a tank the server reported through a hint (its chunk is not loaded here), or
  * none:
  * <ul>
- *   <li>loaded with data - mirror the arithmetic against the tank's live contents;</li>
+ *   <li>loaded with data - mirror the arithmetic against the tank's live contents, a tank that is empty
+ *       included: a pool of 0 asks the player for the whole cost, which is the vanilla rule;</li>
  *   <li>pool known from a hint - same arithmetic, on a value up to {@link XppTankHints}'s TTL old, which is
  *       enough for a button and never enough to move items: the server does the real split;</li>
  *   <li>no data yet, or only a remembered position - stay permissive and let the server decide, because reading

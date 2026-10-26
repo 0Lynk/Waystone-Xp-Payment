@@ -35,7 +35,10 @@ public final class XppClientRequirements {
     private XppClientRequirements() {
     }
 
-    /** @return the original requirement, or a wrapping one when a tank below the source could pay. */
+    /**
+     * @return the original requirement, or a wrapping one when a tank is there to pay for this trip - empty or not,
+     *         because only the wrapped entries get the per-frame button refresh
+     */
     public static WarpRequirement decorate(WaystoneTeleportContext context, WarpRequirement original) {
         if (context == null || original == null) {
             return original;
@@ -67,9 +70,18 @@ public final class XppClientRequirements {
             targetTank = tankBelow(level, context.getTargetWaystone());
             payer = payerAt(targetTank);
         }
+        // A tank that is here but holds nothing still decides this entry's fate. Wrapping it is never stricter than
+        // leaving the vanilla requirement in place - with a pool of 0 the split asks the player for the whole cost,
+        // which is exactly what the vanilla XP requirement asks - while not wrapping greys the entry for the rest of
+        // the session: the per-frame refresh only runs on entries this addon wrapped, so a tank filled while the
+        // list is open could never light the button back up.
         if (payer == null) {
-            // "Grey" has three different causes and they lead to different conclusions: no tank was ever seen
-            // here, a tank was seen but its chunk is elsewhere (contents unknown), or a loaded tank is empty.
+            payer = readableTank(sourceTank, targetTank);
+        }
+        if (payer == null) {
+            // Reaching this log pins the entry to Waystones' own verdict for the rest of the session: either no
+            // tank is there at all, or the only one seen is a slot whose contents this client cannot read, so the
+            // entry cannot follow a pool that changes while the list stays open.
             WaystoneXpPaymentMod.LOGGER.info("[client] no payment tank for this entry (from={}, target={}): "
                             + "under source={}, under target={}", describe(fromWaystone.orElse(null)),
                     describe(context.getTargetWaystone()), describeTank(sourceTank), describeTank(targetTank));
@@ -221,6 +233,26 @@ public final class XppClientRequirements {
             return ref;
         }
         return paysFrom(hint) ? ref : null;
+    }
+
+    /**
+     * The first end holding a tank whose contents this client can read right now, empty or not, or {@code null}
+     * when neither does.
+     *
+     * <p>Only tanks that are loaded here count: a far-away slot is quoted from a hint that is refreshed when the
+     * entry is built, so wrapping it could not follow the pool while the list stays open - it would only swap one
+     * never-changing grey row for another.
+     */
+    @Nullable
+    private static TankRef readableTank(@Nullable TankRef source, @Nullable TankRef target) {
+        if (isReadable(source)) {
+            return source;
+        }
+        return isReadable(target) ? target : null;
+    }
+
+    private static boolean isReadable(@Nullable TankRef ref) {
+        return ref != null && ref.loaded() != null;
     }
 
     /** Waystone dimension and position for diagnostics, or {@code none}. */

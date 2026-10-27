@@ -25,8 +25,9 @@ import net.minecraft.world.entity.player.Player;
  * <ul>
  *   <li>loaded with data - mirror the arithmetic against the tank's live contents, a tank that is empty
  *       included: a pool of 0 asks the player for the whole cost, which is the vanilla rule;</li>
- *   <li>pool known from a hint - same arithmetic, on a value up to {@link XppTankHints}'s TTL old, which is
- *       enough for a button and never enough to move items: the server does the real split;</li>
+ *   <li>pool known from a hint - same arithmetic, on a value the server answered possibly a while ago; the button
+ *       asks for a fresher one every second while the list is open, which is early enough never to move items: the
+ *       server does the real split;</li>
  *   <li>no data yet, or only a remembered position - stay permissive and let the server decide, because reading
  *       "no information" as "empty" is what once left a full tank's button grey forever.</li>
  * </ul>
@@ -130,6 +131,10 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
         if (hintDimension == null || hintPos == null) {
             return null;
         }
+        // The reading is what greys this button, so an old one must keep doing that until a newer one arrives: a tank
+        // that paid for the trip here is empty in the server's index the moment it is drained, and dropping the old
+        // answer would read as "no information", which this class treats as "can pay".
+        XppTankHints.refreshIfStale(hintDimension, hintPos);
         return XppTankHints.hint(hintDimension, hintPos);
     }
 

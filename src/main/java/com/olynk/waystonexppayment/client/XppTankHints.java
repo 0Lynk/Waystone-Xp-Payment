@@ -21,13 +21,28 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * block entity to inspect. Guessing is what this class removes: the answer is either a pool the server read (or
  * remembered), a positive "nothing there", or nothing yet - and each of those leads to a different button state.
  *
- * <p>Answers expire: a pool changes without this client being told. The queue is sent one packet per client tick,
- * so opening a long waystone list cannot turn into one packet per entry.
+ * <p>Answers are kept and re-asked rather than dropped: forgetting an old one turns "this tank is empty" back into
+ * "no information", and the preview reads no information as "can pay" - which left the entry of a drained tank lit
+ * for as long as the player kept the list open. An answer older than {@link #TRUSTED_MILLIS} still decides the
+ * button and is re-asked at most once per {@link #REASK_INTERVAL_MILLIS}; the queue is sent one packet per client
+ * tick, so a long list still cannot turn into one packet per entry.
  */
 public final class XppTankHints {
 
-    /** How long an answer is trusted before its slot is asked about again. */
-    private static final long TTL_MILLIS = 30_000L;
+    /** How long an answer is trusted without asking the server about that slot again. */
+    private static final long TRUSTED_MILLIS = 30_000L;
+
+    /** How often one slot may be re-asked while its answer is older than {@link #TRUSTED_MILLIS}. */
+    private static final long REASK_INTERVAL_MILLIS = 1_000L;
+
+    /**
+     * How old an answer may be when a list is built on it, before that list asks again.
+     *
+     * <p>Far shorter than {@link #TRUSTED_MILLIS} because the answer a player needs is the one from after their last
+     * trip: paying out of a far-away tank drains it, and the list opened at the destination has to hear about that
+     * within a tick or two rather than half a minute later.
+     */
+    private static final long LIST_OPEN_MAX_AGE_MILLIS = 5_000L;
 
     private record Entry(XppTankHintPayload.Hint hint, long receivedAt) {
     }
@@ -37,6 +52,7 @@ public final class XppTankHints {
 
     private static final Map<String, Entry> HINTS = new ConcurrentHashMap<>();
     private static final Map<String, Queued> QUEUE = new ConcurrentHashMap<>();
+    private static final Map<String, Long> LAST_ASKED = new ConcurrentHashMap<>();
 
     private XppTankHints() {
     }
@@ -50,28 +66,71 @@ public final class XppTankHints {
     }
 
     /**
-     * @return the last answer for that slot, or {@code null} when it was never asked about or has expired
+     * @return the last answer for that slot, or {@code null} when it was never asked about. An old answer is
+     * returned on purpose - see the class comment.
      */
     @Nullable
     public static XppTankHintPayload.Hint hint(ResourceLocation dimension, BlockPos pos) {
+        Entry entry = HINTS.get(key(dimension, pos));
+        return entry == null ? null : entry.hint();
+    }
+
+    /**
+     * Queues a slot for the next tick unless its answer is recent enough to build a list on.
+     *
+     * <p>Asked on every list build, so reopening the screen after a trip re-reads the tanks that trip could have
+     * drained. A slot that was answered seconds ago is skipped: the button keeps refreshing it through
+     * {@link #refreshIfStale} while the list is open.
+     */
+    public static void request(ResourceLocation dimension, BlockPos pos) {
+        String key = key(dimension, pos);
+        Entry entry = HINTS.get(key);
+        long now = System.currentTimeMillis();
+        if (entry != null && !dueForListOpen(entry.receivedAt(), now)) {
+            return;
+        }
+        QUEUE.putIfAbsent(key, new Queued(dimension, pos));
+    }
+
+    /** Whether an answer from {@code receivedAt} is too old to build a list on. */
+    static boolean dueForListOpen(long receivedAt, long now) {
+        return now - receivedAt > LIST_OPEN_MAX_AGE_MILLIS;
+    }
+
+    /**
+     * Queues a slot again when its answer has gone stale, so a pool that changed elsewhere reaches the button.
+     *
+     * <p>Called from the render path, once per entry per frame: it only reads two maps and drops the re-ask when the
+     * previous one is younger than {@link #REASK_INTERVAL_MILLIS}, so the queue holds one entry per slot and
+     * {@link #flush()} still sends a single packet per tick.
+     */
+    public static void refreshIfStale(ResourceLocation dimension, BlockPos pos) {
         String key = key(dimension, pos);
         Entry entry = HINTS.get(key);
         if (entry == null) {
-            return null;
-        }
-        if (System.currentTimeMillis() - entry.receivedAt() > TTL_MILLIS) {
-            HINTS.remove(key);
-            return null;
-        }
-        return entry.hint();
-    }
-
-    /** Queues a slot for the next tick, unless it already has an answer. */
-    public static void request(ResourceLocation dimension, BlockPos pos) {
-        if (hint(dimension, pos) != null) {
             return;
         }
-        QUEUE.putIfAbsent(key(dimension, pos), new Queued(dimension, pos));
+        long now = System.currentTimeMillis();
+        if (!dueForReask(entry.receivedAt(), LAST_ASKED.get(key), now)) {
+            return;
+        }
+        LAST_ASKED.put(key, now);
+        QUEUE.putIfAbsent(key, new Queued(dimension, pos));
+    }
+
+    /**
+     * Whether a slot answered at {@code receivedAt} should be asked about again at {@code now}.
+     *
+     * <p>Split out so both thresholds are unit tested without a client world: a fresh answer is trusted, and a stale
+     * one is re-asked no more often than the interval.
+     *
+     * @param lastAskedAt when this slot was last queued for a re-ask, or {@code null} when it never was
+     */
+    static boolean dueForReask(long receivedAt, @Nullable Long lastAskedAt, long now) {
+        if (now - receivedAt <= TRUSTED_MILLIS) {
+            return false;
+        }
+        return lastAskedAt == null || now - lastAskedAt >= REASK_INTERVAL_MILLIS;
     }
 
     /**
@@ -112,6 +171,7 @@ public final class XppTankHints {
     public static void clear() {
         HINTS.clear();
         QUEUE.clear();
+        LAST_ASKED.clear();
     }
 
     private static String key(ResourceLocation dimension, BlockPos pos) {

@@ -26,23 +26,32 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * for as long as the player kept the list open. An answer older than {@link #TRUSTED_MILLIS} still decides the
  * button and is re-asked at most once per {@link #REASK_INTERVAL_MILLIS}; the queue is sent one packet per client
  * tick, so a long list still cannot turn into one packet per entry.
+ *
+ * <p>"No answer yet" is not the same as "no information": a slot this build just asked about is reported through
+ * {@link #awaitingAnswer}, so the preview can keep the entry closed until the first reading lands instead of
+ * promising a trip for one tick and taking it back on the next.
  */
 public final class XppTankHints {
 
-    /** How long an answer is trusted without asking the server about that slot again. */
-    private static final long TRUSTED_MILLIS = 30_000L;
+    /**
+     * How long an answer is trusted without asking the server about that slot again.
+     *
+     * <p>Short on purpose: paying out of a far-away tank drains it, and the list opened at the destination has to
+     * hear about that within a second or two rather than half a minute later. Every slot on an open list therefore
+     * costs at most one query per second, and the queue still sends one packet per client tick.
+     */
+    private static final long TRUSTED_MILLIS = 5_000L;
 
     /** How often one slot may be re-asked while its answer is older than {@link #TRUSTED_MILLIS}. */
     private static final long REASK_INTERVAL_MILLIS = 1_000L;
 
     /**
-     * How old an answer may be when a list is built on it, before that list asks again.
+     * How long the preview waits for an answer it just asked for before falling back to "the server decides".
      *
-     * <p>Far shorter than {@link #TRUSTED_MILLIS} because the answer a player needs is the one from after their last
-     * trip: paying out of a far-away tank drains it, and the list opened at the destination has to hear about that
-     * within a tick or two rather than half a minute later.
+     * <p>Long enough for a round trip (the query leaves on the next tick and the answer lands the tick after), short
+     * enough that a server which never answers cannot keep an entry gated for the rest of the session.
      */
-    private static final long LIST_OPEN_MAX_AGE_MILLIS = 5_000L;
+    private static final long ANSWER_WAIT_MILLIS = 1_000L;
 
     private record Entry(XppTankHintPayload.Hint hint, long receivedAt) {
     }
@@ -53,6 +62,7 @@ public final class XppTankHints {
     private static final Map<String, Entry> HINTS = new ConcurrentHashMap<>();
     private static final Map<String, Queued> QUEUE = new ConcurrentHashMap<>();
     private static final Map<String, Long> LAST_ASKED = new ConcurrentHashMap<>();
+    private static final Map<String, Long> IN_FLIGHT = new ConcurrentHashMap<>();
 
     private XppTankHints() {
     }
@@ -61,7 +71,9 @@ public final class XppTankHints {
     public static void accept(XppTankHintPayload payload) {
         long now = System.currentTimeMillis();
         for (XppTankHintPayload.Hint hint : payload.hints()) {
-            HINTS.put(key(payload.dimension(), hint.pos()), new Entry(hint, now));
+            String key = key(payload.dimension(), hint.pos());
+            HINTS.put(key, new Entry(hint, now));
+            IN_FLIGHT.remove(key);
         }
     }
 
@@ -89,12 +101,32 @@ public final class XppTankHints {
         if (entry != null && !dueForListOpen(entry.receivedAt(), now)) {
             return;
         }
+        if (entry == null) {
+            IN_FLIGHT.putIfAbsent(key, now);
+        }
         QUEUE.putIfAbsent(key, new Queued(dimension, pos));
+    }
+
+    /**
+     * Whether this slot was asked about and the answer has not arrived yet.
+     *
+     * <p>A list is built before its answers are back, so an entry whose tank is elsewhere has no reading for the
+     * first tick or two. Treating that as "can pay" made the entry light up and go dark again the moment the answer
+     * landed - a button that offers a trip the tank cannot pay for. The wait is bounded by
+     * {@link #ANSWER_WAIT_MILLIS} so a question that never comes back cannot gate the entry forever.
+     */
+    public static boolean awaitingAnswer(ResourceLocation dimension, BlockPos pos) {
+        return stillWaiting(IN_FLIGHT.get(key(dimension, pos)), System.currentTimeMillis());
+    }
+
+    /** Whether a question asked at {@code askedAt} is still worth waiting for at {@code now}. */
+    static boolean stillWaiting(@Nullable Long askedAt, long now) {
+        return askedAt != null && now - askedAt <= ANSWER_WAIT_MILLIS;
     }
 
     /** Whether an answer from {@code receivedAt} is too old to build a list on. */
     static boolean dueForListOpen(long receivedAt, long now) {
-        return now - receivedAt > LIST_OPEN_MAX_AGE_MILLIS;
+        return now - receivedAt > TRUSTED_MILLIS;
     }
 
     /**
@@ -172,6 +204,7 @@ public final class XppTankHints {
         HINTS.clear();
         QUEUE.clear();
         LAST_ASKED.clear();
+        IN_FLIGHT.clear();
     }
 
     private static String key(ResourceLocation dimension, BlockPos pos) {

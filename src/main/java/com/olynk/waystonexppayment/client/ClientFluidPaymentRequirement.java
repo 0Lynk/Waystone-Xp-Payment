@@ -28,8 +28,10 @@ import net.minecraft.world.entity.player.Player;
  *   <li>pool known from a hint - same arithmetic, on a value the server answered possibly a while ago; the button
  *       asks for a fresher one every second while the list is open, which is early enough never to move items: the
  *       server does the real split;</li>
- *   <li>no data yet, or only a remembered position - stay permissive and let the server decide, because reading
- *       "no information" as "empty" is what once left a full tank's button grey forever.</li>
+ *   <li>a question about that slot still in flight - stay closed until it lands, because the answer decides the
+ *       button and an entry that lights up for a tick only to go dark is a promise this client cannot keep;</li>
+ *   <li>no data and no question outstanding - stay permissive and let the server decide, because reading "no
+ *       information" as "empty" is what once left a full tank's button grey forever.</li>
  * </ul>
  *
  * <p>Never consumes anything: the server performs the real payment through its own requirement.
@@ -69,13 +71,24 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
     @Override
     public boolean canAfford(Player player) {
         Integer poolXp = knownPoolXp();
+        boolean unresolved = poolXp == null && awaitingReading();
         boolean tankShort = poolXp != null
                 && !PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), player.totalExperience).affordable();
-        if (tankShort && !skipsPayment(player)) {
+        if ((unresolved || tankShort) && !skipsPayment(player)) {
             return false;
         }
         // Everything except the XP cost still has to hold (cooldowns, item costs, ...).
         return residual == null || residual.canAfford(player);
+    }
+
+    /**
+     * Whether this client asked about the tank and is still waiting for the first reading.
+     *
+     * <p>Asked is not the same as known: the entry is built before the answer arrives, and treating that gap as
+     * "can pay" is what made a drained tank's entry light up for a tick and then go dark.
+     */
+    private boolean awaitingReading() {
+        return hintDimension != null && hintPos != null && XppTankHints.awaitingAnswer(hintDimension, hintPos);
     }
 
     /**
@@ -98,7 +111,9 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
         Integer poolXp = knownPoolXp();
         int held = player.totalExperience;
         if (poolXp == null) {
-            return "no pool reading here (server decides), player " + held + " XP, cost " + costXp + " XP";
+            String state = awaitingReading() ? "waiting for the first reading of that tank"
+                    : "no pool reading here (server decides)";
+            return state + ", player " + held + " XP, cost " + costXp + " XP";
         }
         PaymentSplit split = PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), held);
         return "tank " + split.xpFromFluid() + " of " + poolXp + " XP, player " + split.xpFromPlayer() + " of "

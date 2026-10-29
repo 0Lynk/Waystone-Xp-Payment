@@ -6,17 +6,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * When a server answer about a far-away tank is old enough to be asked about again.
+ * When a server answer about a far-away tank is old enough to be asked about again, and how long a question is
+ * worth waiting for.
  *
- * <p>What this guards: an answer that is only trusted for thirty seconds must not be dropped when it gets older - a
+ * <p>What this guards: an answer that is only trusted for a few seconds must not be dropped when it gets older - a
  * dropped answer reads as "no information", and the button then treats an empty tank as one that can pay. It has to
- * be kept and refreshed instead, at a rate that cannot flood the server with one query per frame per entry.
+ * be kept and refreshed instead, at a rate that cannot flood the server with one query per frame per entry. The same
+ * "no information" rule is why an outstanding question is reported separately: a slot that was just asked about has
+ * no reading yet, and calling that "can pay" lights the entry for a tick and takes it back.
  */
 class XppTankHintsTest {
 
     private static final long NOW = 1_000_000L;
-    private static final long TRUSTED = 30_000L;
+    private static final long TRUSTED = 5_000L;
     private static final long REASK = 1_000L;
+    private static final long WAIT = 1_000L;
 
     @Test
     void aFreshAnswerIsNotAskedAboutAgain() {
@@ -46,11 +50,27 @@ class XppTankHintsTest {
 
     @Test
     void aListBuiltOnASecondsOldAnswerAsksAgain() {
-        assertTrue(XppTankHints.dueForListOpen(NOW - 5_001L, NOW));
+        assertTrue(XppTankHints.dueForListOpen(NOW - TRUSTED - 1, NOW));
     }
 
     @Test
     void aListBuiltOnAnAnswerFromAMomentAgoDoesNotAskAgain() {
         assertFalse(XppTankHints.dueForListOpen(NOW - 200L, NOW));
+    }
+
+    @Test
+    void aSlotNobodyAskedAboutIsNotWaitedFor() {
+        assertFalse(XppTankHints.stillWaiting(null, NOW));
+    }
+
+    @Test
+    void aQuestionInFlightIsWaitedFor() {
+        assertTrue(XppTankHints.stillWaiting(NOW - 200L, NOW));
+    }
+
+    @Test
+    void waitingEndsWhenTheAnswerIsOverdue() {
+        assertTrue(XppTankHints.stillWaiting(NOW - WAIT, NOW));
+        assertFalse(XppTankHints.stillWaiting(NOW - WAIT - 1, NOW));
     }
 }

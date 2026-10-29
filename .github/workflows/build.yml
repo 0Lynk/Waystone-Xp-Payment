@@ -31,3 +31,25 @@ jobs:
           name: waystone_xp_payment
           path: build/libs/*.jar
           if-no-files-found: error
+
+  language:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The commit message check walks the history between the base and the
+          # head of the pull request, which a shallow clone does not have.
+          fetch-depth: 0
+
+      - name: Check the language policy
+        env:
+          # Pull requests carry the base sha, pushes carry the previous tip.
+          RANGE_START: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          args=()
+          if [ -n "$RANGE_START" ] && [ "$RANGE_START" != "0000000000000000000000000000000000000000" ]; then
+            args+=(--range "$RANGE_START..HEAD")
+          fi
+          python3 .github/scripts/check-language.py "${args[@]}"
+

@@ -51,7 +51,7 @@ public final class TankPoolIndex extends SavedData {
     private boolean warnedAboutCap;
 
     /** @param poolXp XP the tank could pay, or {@link #NO_TANK} when the slot was seen and had no tank */
-    public record Pool(int poolXp, int mbPerXp, long updatedAt) {
+    public record Pool(int poolXp, int xpPerBucketMilli, long updatedAt) {
 
         public boolean hadTank() {
             return poolXp != NO_TANK;
@@ -64,7 +64,7 @@ public final class TankPoolIndex extends SavedData {
     }
 
     /** Records the current state of one slot. {@code poolXp = NO_TANK} means "looked, nothing there". */
-    public void record(ResourceLocation dimension, BlockPos pos, int poolXp, int mbPerXp, long now) {
+    public void record(ResourceLocation dimension, BlockPos pos, int poolXp, int xpPerBucketMilli, long now) {
         String key = key(dimension, pos);
         if (!pools.containsKey(key) && pools.size() >= MAX_ENTRIES) {
             // Silent drops would make a preview that quietly stops updating for new tanks; one line per server
@@ -78,7 +78,7 @@ public final class TankPoolIndex extends SavedData {
             }
             return;
         }
-        Pool updated = new Pool(poolXp, mbPerXp, now);
+        Pool updated = new Pool(poolXp, xpPerBucketMilli, now);
         Pool previous = pools.put(key, updated);
         if (!updated.equals(previous)) {
             setDirty();
@@ -114,7 +114,7 @@ public final class TankPoolIndex extends SavedData {
             CompoundTag row = new CompoundTag();
             row.putString("slot", entry.getKey());
             row.putInt("poolXp", entry.getValue().poolXp());
-            row.putInt("mbPerXp", entry.getValue().mbPerXp());
+            row.putInt("xpPerBucketMilli", entry.getValue().xpPerBucketMilli());
             row.putLong("updatedAt", entry.getValue().updatedAt());
             rows.add(row);
         }
@@ -132,9 +132,24 @@ public final class TankPoolIndex extends SavedData {
                 // A row without a slot cannot be addressed; skipping it keeps a partially written file readable.
                 continue;
             }
-            index.pools.put(slot, new Pool(row.getInt("poolXp"), row.getInt("mbPerXp"), row.getLong("updatedAt")));
+            index.pools.put(slot, new Pool(row.getInt("poolXp"), milliOf(row), row.getLong("updatedAt")));
         }
         return index;
+    }
+
+    /**
+     * Reads the rate of one saved row, converting a pre-datapack save on the way.
+     *
+     * <p>Old saves stored {@code mbPerXp}; a stored {@code 0} meant "no tank here", which is what makes the two
+     * units distinguishable. Converting rather than discarding keeps a remembered distant tank quotable after the
+     * upgrade instead of turning it into "unknown" until someone walks there again.
+     */
+    private static int milliOf(CompoundTag row) {
+        if (row.contains("xpPerBucketMilli")) {
+            return row.getInt("xpPerBucketMilli");
+        }
+        int legacyMbPerXp = row.getInt("mbPerXp");
+        return legacyMbPerXp <= 0 ? 0 : (int) Math.max(1L, 1_000_000L / legacyMbPerXp);
     }
 
     /** Every remembered slot, for diagnostics. */

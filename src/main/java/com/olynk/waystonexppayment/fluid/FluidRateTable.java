@@ -4,89 +4,63 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
+import java.util.Set;
 
 /**
- * Pure (Minecraft-free) lookup table: which fluid (by id or by tag) counts as "experience fluid", and how many
- * milli-buckets (mB) of it are worth 1 XP.
+ * Pure (Minecraft-free) lookup table: which fluid counts as experience and how much a bucket of it is worth.
  *
- * <p>Lookup order (design ADR-10): exact fluid id -> fluid tag -> fallback (only if undeclared fluids are accepted).
- * A fluid that is not declared is <em>not</em> accepted, which keeps the tank single-purpose and predictable.
+ * <p>Only exact fluid ids are declared; a still/flowing pair resolves to the same rate because mods register one id
+ * per variant and a tank can end up holding either depending on whether it was filled by pipe or by bucket.
  *
- * <p>Default rate is {@value #DEFAULT_MB_PER_XP} mB per XP, matching Create: Enchantment Industry's own
- * experience fluid (authoritative reference: {@code ExperienceHelper#getExperienceFromFluid} returns the mB amount
- * verbatim for {@code create_enchantment_industry:experience}).
+ * <p>There is deliberately no tag lookup and no "the name sounds like experience" heuristic. Both used to guess,
+ * and a guess in a payment path is either a free teleport or a charge the player cannot explain.
  */
 public final class FluidRateTable {
 
-    public static final int DEFAULT_MB_PER_XP = 1;
+    private final Map<String, Resolution> byFluidId;
 
-    private final int fallbackMbPerXp;
-    private final boolean acceptUndeclared;
-    private final boolean acceptExperienceNamedFluids;
-    private final Map<String, Integer> byFluidId;
-    private final Map<String, Integer> byTag;
-
-    /** A resolved rate plus why it was chosen, so logs and the info command can explain themselves. */
-    public record Resolution(int mbPerXp, String source) {
+    /** A resolved rate plus where it came from, so logs and the info command can explain themselves. */
+    public record Resolution(XpRate rate, String source) {
     }
 
-    private FluidRateTable(int fallbackMbPerXp, boolean acceptUndeclared, boolean acceptExperienceNamedFluids,
-                           Map<String, Integer> byFluidId, Map<String, Integer> byTag) {
-        this.fallbackMbPerXp = fallbackMbPerXp;
-        this.acceptUndeclared = acceptUndeclared;
-        this.acceptExperienceNamedFluids = acceptExperienceNamedFluids;
+    private FluidRateTable(Map<String, Resolution> byFluidId) {
         this.byFluidId = Map.copyOf(byFluidId);
-        this.byTag = Map.copyOf(byTag);
     }
 
-    /**
-     * Resolves a rate and records how it was found.
-     *
-     * <p>Order: exact fluid id -> the id's still/flowing counterpart -> fluid tag -> experience-sounding name
-     * (opt-in) -> fallback (opt-in). The counterpart step exists because mods register one id per variant
-     * ({@code x:xp_fluid} and {@code x:flowing_xp_fluid}) and a tank can end up holding either one depending on
-     * whether it was filled by pipe or by bucket.
-     *
-     * @param fluidId fluid id in {@code namespace:path} form
-     * @param tags    the fluid's tag ids in {@code namespace:path} form (no leading {@code #})
-     */
-    public Optional<Resolution> resolve(String fluidId, Collection<String> tags) {
-        Integer exact = byFluidId.get(fluidId);
+    /** Resolves a rate: exact fluid id first, then its still/flowing counterpart. */
+    public Optional<Resolution> resolve(String fluidId) {
+        Resolution exact = byFluidId.get(fluidId);
         if (exact != null) {
-            return Optional.of(new Resolution(exact, "exact id " + fluidId));
+            return Optional.of(exact);
         }
-
         String counterpart = counterpartId(fluidId);
-        if (counterpart != null) {
-            Integer mirrored = byFluidId.get(counterpart);
-            if (mirrored != null) {
-                return Optional.of(new Resolution(mirrored, "counterpart id " + counterpart));
-            }
+        if (counterpart == null) {
+            return Optional.empty();
         }
-
-        for (String tag : tags) {
-            Integer byTagRate = byTag.get(tag);
-            if (byTagRate != null) {
-                return Optional.of(new Resolution(byTagRate, "tag #" + tag));
-            }
-        }
-
-        if (acceptExperienceNamedFluids && looksLikeExperience(fluidId)) {
-            return Optional.of(new Resolution(fallbackMbPerXp, "experience-like name"));
-        }
-
-        return acceptUndeclared ? Optional.of(new Resolution(fallbackMbPerXp, "fallback (undeclared accepted)"))
-                : Optional.empty();
+        Resolution mirrored = byFluidId.get(counterpart);
+        return mirrored == null ? Optional.empty()
+                : Optional.of(new Resolution(mirrored.rate(), "counterpart id " + counterpart));
     }
 
-    /**
-     * @param fluidId fluid id in {@code namespace:path} form
-     * @param tags    the fluid's tag ids in {@code namespace:path} form (no leading {@code #})
-     */
-    public OptionalInt rateFor(String fluidId, Collection<String> tags) {
-        return resolve(fluidId, tags).map(resolution -> OptionalInt.of(resolution.mbPerXp()))
-                .orElseGet(OptionalInt::empty);
+    public Optional<XpRate> rateFor(String fluidId) {
+        return resolve(fluidId).map(Resolution::rate);
+    }
+
+    public boolean accepts(String fluidId) {
+        return byFluidId.containsKey(fluidId);
+    }
+
+    /** XP value of {@code mb} milli-buckets, floored (the remainder stays in the tank). */
+    public int xpValue(String fluidId, int mb) {
+        return rateFor(fluidId).map(rate -> rate.xpOfMb(mb)).orElse(0);
+    }
+
+    public int declaredCount() {
+        return byFluidId.size();
+    }
+
+    public Set<String> declaredFluidIds() {
+        return byFluidId.keySet();
     }
 
     /** The same fluid id with {@code flowing_} added to, or removed from, its path. */
@@ -103,144 +77,44 @@ public final class FluidRateTable {
         return namespace + ":flowing_" + path;
     }
 
-    /**
-     * Whether an id is named after experience rather than declared.
-     *
-     * <p>Deliberately narrow - a whole {@code xp} or {@code experience} segment, never a substring - so
-     * {@code some_mod:xp_fluid}, {@code some_mod:flowing_xp_fluid}, {@code some_mod:xp_still} and
-     * {@code some_mod:liquid_experience} qualify while {@code some_mod:expansion} does not.
-     */
-    static boolean looksLikeExperience(String fluidId) {
-        int colon = fluidId.indexOf(':');
-        String path = colon < 0 ? fluidId : fluidId.substring(colon + 1);
-        for (String part : path.split("_")) {
-            if (part.equals("xp") || part.equals("experience")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean accepts(String fluidId, Collection<String> tags) {
-        return rateFor(fluidId, tags).isPresent();
-    }
-
-    /** XP value of {@code mb} milli-buckets, floored (remainder stays in the tank). */
-    public int xpValue(String fluidId, Collection<String> tags, int mb) {
-        if (mb <= 0) {
-            return 0;
-        }
-        OptionalInt rate = rateFor(fluidId, tags);
-        return rate.isEmpty() ? 0 : mb / rate.getAsInt();
-    }
-
-    public boolean acceptUndeclared() {
-        return acceptUndeclared;
-    }
-
-    public int fallbackMbPerXp() {
-        return fallbackMbPerXp;
-    }
-
-    public int declaredCount() {
-        return byFluidId.size() + byTag.size();
-    }
-
-    /** Declared fluid ids ({@code namespace:path}). */
-    public java.util.Set<String> declaredFluidIds() {
-        return byFluidId.keySet();
-    }
-
-    /** Declared fluid tag ids ({@code namespace:path}, no leading {@code #}). */
-    public java.util.Set<String> declaredTags() {
-        return byTag.keySet();
-    }
-
-    /**
-     * Parses one config/recipe entry of the form {@code <fluid id or #tag>=<mbPerXp>}, e.g.
-     * {@code create_enchantment_industry:experience=1} or {@code #c:experience=1}.
-     *
-     * @return the normalized key (tag keys keep their leading {@code #}) and the rate, or empty if malformed
-     */
-    public static Optional<Map.Entry<String, Integer>> parseEntry(String raw) {
-        if (raw == null) {
-            return Optional.empty();
-        }
-        String trimmed = raw.trim();
-        int eq = trimmed.lastIndexOf('=');
-        if (eq <= 0 || eq == trimmed.length() - 1) {
-            return Optional.empty();
-        }
-        String key = trimmed.substring(0, eq).trim();
-        String value = trimmed.substring(eq + 1).trim();
-        if (key.isEmpty()) {
-            return Optional.empty();
-        }
-        int rate;
-        try {
-            rate = Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return Optional.empty();
-        }
-        if (rate < 1) {
-            return Optional.empty();
-        }
-        return Optional.of(Map.entry(key, rate));
-    }
-
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Collects declarations in the order they should win: later calls overwrite earlier ones, and
+     * {@link #unregister(String)} removes a fluid that an earlier (lower priority) declaration had claimed.
+     */
     public static final class Builder {
-        private final Map<String, Integer> fluidIds = new LinkedHashMap<>();
-        private final Map<String, Integer> tags = new LinkedHashMap<>();
-        private int fallbackMbPerXp = DEFAULT_MB_PER_XP;
-        private boolean acceptUndeclared;
-        private boolean acceptExperienceNamedFluids = true;
-
-        public Builder fallbackMbPerXp(int value) {
-            this.fallbackMbPerXp = Math.max(1, value);
-            return this;
-        }
-
-        public Builder acceptUndeclared(boolean value) {
-            this.acceptUndeclared = value;
-            return this;
-        }
-
-        public Builder acceptExperienceNamedFluids(boolean value) {
-            this.acceptExperienceNamedFluids = value;
-            return this;
-        }
+        private final Map<String, Resolution> fluidIds = new LinkedHashMap<>();
 
         /**
-         * @param key  {@code namespace:path} for a fluid, or {@code #namespace:path} for a fluid tag
-         * @param rate mB per 1 XP, or {@code null} to use the fallback rate
+         * @param source human readable provenance, e.g. {@code builtin: create_enchantment_industry/experience}
          */
-        public Builder declare(String key, Integer rate) {
-            if (key == null || key.isBlank()) {
+        public Builder declare(String fluidId, XpRate rate, String source) {
+            if (fluidId == null || fluidId.isBlank() || rate == null) {
                 return this;
             }
-            String trimmed = key.trim();
-            int effective = rate == null ? fallbackMbPerXp : Math.max(1, rate);
-            if (trimmed.startsWith("#")) {
-                tags.put(trimmed.substring(1), effective);
-            } else {
-                fluidIds.put(trimmed, effective);
+            fluidIds.put(fluidId.trim(), new Resolution(rate, source));
+            return this;
+        }
+
+        public Builder unregister(String fluidId) {
+            if (fluidId != null) {
+                fluidIds.remove(fluidId.trim());
             }
             return this;
         }
 
-        public Builder declareAll(Collection<String> entries) {
-            for (String entry : entries) {
-                parseEntry(entry).ifPresent(e -> declare(e.getKey(), e.getValue()));
+        public Builder declareAll(Collection<FluidDeclaration> declarations) {
+            for (FluidDeclaration declaration : declarations) {
+                declare(declaration.fluidId(), declaration.rate(), declaration.source());
             }
             return this;
         }
 
         public FluidRateTable build() {
-            return new FluidRateTable(fallbackMbPerXp, acceptUndeclared, acceptExperienceNamedFluids, fluidIds, tags);
+            return new FluidRateTable(fluidIds);
         }
     }
 }

@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import com.olynk.waystonexppayment.WaystoneXpPaymentMod;
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.fluid.FluidRates;
+import com.olynk.waystonexppayment.fluid.XpRate;
 
 import net.blay09.mods.waystones.api.requirement.WarpRequirement;
 import net.minecraft.ChatFormatting;
@@ -67,8 +68,11 @@ public final class FluidPaymentRequirement implements WarpRequirement {
     private PaymentSplit split(Player player) {
         XpPaymentTankBlockEntity tank = tank();
         int poolXp = tank == null ? 0 : tank.poolXp();
-        int rate = tank == null ? FluidRates.table().fallbackMbPerXp() : tank.mbPerXp();
-        return PaymentSplit.compute(costXp, poolXp, Math.max(1, rate), player.totalExperience);
+        XpRate rate = tank == null ? null : tank.rate();
+        // No rate means no charge: a tank of an unregistered fluid is worth nothing, never a default rate. The
+        // placeholder rate is inert - with poolXp = 0 no mB is ever converted with it.
+        return PaymentSplit.compute(costXp, poolXp, rate == null ? XpRate.ofBucket(1000) : rate,
+                player.totalExperience);
     }
 
     @Override

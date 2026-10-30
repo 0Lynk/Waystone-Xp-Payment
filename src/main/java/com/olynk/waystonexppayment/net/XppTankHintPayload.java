@@ -64,10 +64,10 @@ public record XppTankHintPayload(ResourceLocation dimension, List<Hint> hints) i
      * @param poolXp XP the tank can currently pay, {@code 0} when it exists but holds nothing usable or when the
      *               player may not use it, {@link #NO_TANK} when there is no tank at all, or {@link #UNKNOWN}
      *               when the server could not look (chunk not loaded and nothing recorded)
-     * @param mbPerXp millibuckets per XP the server used for {@code poolXp}
+     * @param xpPerBucketMilli XP per bucket in thousandths the server used for {@code poolXp}
      * @param access whether this player may pay from that tank at all
      */
-    public record Hint(BlockPos pos, int poolXp, int mbPerXp, Access access) {
+    public record Hint(BlockPos pos, int poolXp, int xpPerBucketMilli, Access access) {
 
         public static Hint none(BlockPos pos) {
             return new Hint(pos, NO_TANK, 0, Access.UNKNOWN);
@@ -82,8 +82,8 @@ public record XppTankHintPayload(ResourceLocation dimension, List<Hint> hints) i
             return new Hint(pos, 0, 0, Access.DENIED);
         }
 
-        public static Hint allowed(BlockPos pos, int poolXp, int mbPerXp) {
-            return new Hint(pos, poolXp, mbPerXp, Access.ALLOWED);
+        public static Hint allowed(BlockPos pos, int poolXp, int xpPerBucketMilli) {
+            return new Hint(pos, poolXp, xpPerBucketMilli, Access.ALLOWED);
         }
 
         public boolean hasTank() {
@@ -124,7 +124,7 @@ public record XppTankHintPayload(ResourceLocation dimension, List<Hint> hints) i
                 for (Hint hint : payload.hints()) {
                     buffer.writeBlockPos(hint.pos());
                     buffer.writeVarInt(hint.poolXp());
-                    buffer.writeVarInt(hint.mbPerXp());
+                    buffer.writeVarInt(hint.xpPerBucketMilli());
                     writeAccess(buffer, hint.access());
                 }
             },

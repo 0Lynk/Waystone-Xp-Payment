@@ -10,6 +10,7 @@ import com.olynk.waystonexppayment.client.XppClientTankRegistry;
 import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.data.TankPoolIndex;
 import com.olynk.waystonexppayment.fluid.FluidRates;
+import com.olynk.waystonexppayment.fluid.XpRate;
 import com.olynk.waystonexppayment.registry.XppRegistry;
 
 import java.util.List;
@@ -108,7 +109,7 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     private void recordPoolInIndex() {
         if (level instanceof ServerLevel serverLevel) {
             TankPoolIndex.get(serverLevel.getServer()).record(serverLevel.dimension().location(), worldPosition,
-                    cachedPoolXp, mbPerXp(), System.currentTimeMillis());
+                    cachedPoolXp, xpPerBucketMilli(), System.currentTimeMillis());
         }
     }
 
@@ -279,9 +280,21 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
         return tag.contains(SYNC_POOL_XP);
     }
 
-    /** mB per XP for the fluid currently in the tank (falls back to the configured default). */
-    public int mbPerXp() {
-        return FluidRates.mbPerXp(tank.getFluid());
+    /** The rate of the fluid currently in the tank; {@link XpRate#mbPerXp()} is its legacy projection. */
+    public XpRate rate() {
+        return FluidRates.rateFor(tank.getFluid()).orElse(null);
+    }
+
+    /**
+     * The rate in thousandths of an XP per bucket, which is what the wire carries.
+     *
+     * <p>{@code 0} means "the fluid in this tank is not declared anywhere", so no amount of it can pay for
+     * anything; sending the legacy mB-per-XP number instead would let a client multiply a price by a unit the
+     * server never agreed to.
+     */
+    public int xpPerBucketMilli() {
+        XpRate rate = rate();
+        return rate == null ? 0 : (int) rate.milliXpPerBucket();
     }
 
     public FluidStack drainInternal(int amountMb) {

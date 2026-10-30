@@ -1,0 +1,5 @@
+{
+  "type": "waystone_xp_payment:xp_fluid",
+  "fluid": "sophisticatedcore:xp_still",
+  "xp_per_bucket": 1000
+}

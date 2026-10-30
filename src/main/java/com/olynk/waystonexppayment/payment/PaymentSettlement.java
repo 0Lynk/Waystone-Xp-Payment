@@ -20,9 +20,8 @@ public record PaymentSettlement(int xpFromTank, int xpFromPlayer, int xpStillOwe
      * @param playerXp  XP the player holds right now, at settlement time
      */
     public static PaymentSettlement settle(PaymentSplit agreed, int drainedMb, int playerXp) {
-        int rate = Math.max(1, agreed.mbPerXp());
         // Floor, not round: the tank is credited only for whole XP it fully covered.
-        int fromTank = Math.min(Math.max(0, drainedMb) / rate, agreed.costXp());
+        int fromTank = Math.min(agreed.rate().xpOfMb(Math.max(0, drainedMb)), agreed.costXp());
         int remaining = agreed.costXp() - fromTank;
         int fromPlayer = Math.min(remaining, Math.max(0, playerXp));
         return new PaymentSettlement(fromTank, fromPlayer, remaining - fromPlayer);

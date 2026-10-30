@@ -6,6 +6,7 @@ import javax.annotation.Nullable;
 
 import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
+import com.olynk.waystonexppayment.fluid.XpRate;
 import com.olynk.waystonexppayment.net.XppTankHintPayload;
 import com.olynk.waystonexppayment.payment.PaymentSplit;
 
@@ -73,7 +74,7 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
         Integer poolXp = knownPoolXp();
         boolean unresolved = poolXp == null && awaitingReading();
         boolean tankShort = poolXp != null
-                && !PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), player.totalExperience).affordable();
+                && !PaymentSplit.compute(costXp, poolXp, knownRate(), player.totalExperience).affordable();
         if ((unresolved || tankShort) && !skipsPayment(player)) {
             return false;
         }
@@ -115,7 +116,7 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
                     : "no pool reading here (server decides)";
             return state + ", player " + held + " XP, cost " + costXp + " XP";
         }
-        PaymentSplit split = PaymentSplit.compute(costXp, poolXp, knownMbPerXp(), held);
+        PaymentSplit split = PaymentSplit.compute(costXp, poolXp, knownRate(), held);
         return "tank " + split.xpFromFluid() + " of " + poolXp + " XP, player " + split.xpFromPlayer() + " of "
                 + held + " XP, cost " + costXp + " XP";
     }
@@ -136,9 +137,11 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
      * The rate only decides how many mB a payment moves, never whether it is affordable, so an unknown rate is
      * harmless here - but a hint carries the server's real one and using it keeps the preview exact.
      */
-    private int knownMbPerXp() {
+    private XpRate knownRate() {
         XppTankHintPayload.Hint hint = hint();
-        return hint != null && hint.hasTank() ? Math.max(1, hint.mbPerXp()) : 1;
+        return hint != null && hint.hasTank() && hint.xpPerBucketMilli() > 0
+                ? new XpRate(hint.xpPerBucketMilli())
+                : XpRate.ofBucket(1000);
     }
 
     @Nullable

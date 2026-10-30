@@ -115,8 +115,8 @@ public final class XppTeleportHandler {
             // tell "the fluid is not recognized" apart from "the pool is empty" after the fact. It is also not a
             // payer: keeping it would spend this trip's only choice on a tank that pays nothing and never let the
             // other end's tank - the one the client preview named - have its turn.
-            WaystoneXpPaymentMod.LOGGER.warn("Tank at {} cannot pay: {} (add the fluid to fluidConversions or "
-                            + "declare it with a waystone_xp_payment:xp_fluid recipe)",
+            WaystoneXpPaymentMod.LOGGER.warn("Tank at {} cannot pay: {} (declare the fluid with a "
+                            + "waystone_xp_payment:xp_fluid recipe to make it count)",
                     tankPos.toShortString(), FluidRates.describe(tank.getTank().getFluid()));
             return null;
         }

@@ -131,7 +131,9 @@ Declaring the same fluid again in a higher-priority pack **overrides** the earli
 reprices a fluid; `"xp_per_bucket": 0` removes a builtin declaration instead. Only exact fluid ids are matched -
 flowing variants follow their still id, and tags are not consulted. The full contract, including how packs
 override each other and how a fluid that is declared nowhere is treated, is in
-`docs/数据包契约-经验流体.md`.
+`docs/数据包契约-经验流体.md`. The three fluids shipped in the built-in table are listed there too; the procedure for
+getting a new mod onto that list (confirm the exact id, then measure how much XP one bucket really is) is in
+`docs/SOP-内置默认数据包.md`.
 
 ## Compatibility
 

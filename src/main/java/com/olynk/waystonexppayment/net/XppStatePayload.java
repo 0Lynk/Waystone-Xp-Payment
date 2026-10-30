@@ -36,7 +36,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * added at all (online players, existing teams), and the screen only filters that list locally. {@code canEdit}
  * is the owner check the screen renders as read-only mode; the server re-checks it on every request anyway.
  */
-public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int poolXp, int mbPerXp,
+public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int poolXp, int xpPerBucketMilli,
                               boolean whitelist, boolean canEdit, String ownerName, List<Entry> candidatesPlayers,
                               List<Entry> candidatesTeams, List<Entry> entries, List<Entry> ownTeams)
         implements CustomPacketPayload {
@@ -74,7 +74,7 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
                 FluidStack.OPTIONAL_STREAM_CODEC.encode(buffer, payload.fluid());
                 buffer.writeVarInt(payload.capacity());
                 buffer.writeVarInt(payload.poolXp());
-                buffer.writeVarInt(payload.mbPerXp());
+                buffer.writeVarInt(payload.xpPerBucketMilli());
                 buffer.writeBoolean(payload.whitelist());
                 buffer.writeBoolean(payload.canEdit());
                 buffer.writeUtf(XppWireLimits.text(payload.ownerName()), XppWireLimits.MAX_TEXT_BYTES);
@@ -135,7 +135,7 @@ public record XppStatePayload(BlockPos pos, FluidStack fluid, int capacity, int 
         }
 
         PacketDistributor.sendToPlayer(player, new XppStatePayload(pos, tank.getTank().getFluid(),
-                tank.getTank().getCapacity(), tank.poolXp(), tank.mbPerXp(), access.isWhitelist(),
+                tank.getTank().getCapacity(), tank.poolXp(), tank.xpPerBucketMilli(), access.isWhitelist(),
                 tank.canEditOrOp(player), tank.ownerName(), candidatePlayers(player), candidateTeams(),
                 entries, own));
     }

@@ -52,7 +52,7 @@ public final class XppModEvents {
      * the dedicated {@code SET_MODE} field; a mismatch is refused during the handshake, which is far easier to
      * diagnose than a byte stream that decodes into nonsense.
      */
-    public static final String PROTOCOL_VERSION = "4";
+    public static final String PROTOCOL_VERSION = "5";
 
     @SubscribeEvent
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -84,7 +84,7 @@ public final class XppModEvents {
             return;
         }
         XppSettings.reloadFromConfig();
-        // Recipe-declared rates are re-added on server start / datapack sync; here the config-only view is enough.
-        FluidRates.rebuildFromConfig();
+        // Rates live in datapacks only. Rebuilding the table from config used to drop every recipe-declared fluid,
+        // which quietly turned a full tank into a 0 XP tank in the middle of a session.
     }
 }

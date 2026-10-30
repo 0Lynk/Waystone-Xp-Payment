@@ -3,13 +3,15 @@ package com.olynk.waystonexppayment.config;
 /**
  * Immutable snapshot of the COMMON config, held in a volatile so it is readable at any time.
  * {@link #DEFAULTS} is used before the config file has been loaded.
+ *
+ * <p>No rate lives here: how much a fluid is worth is decided by datapack declarations only, so a config file
+ * can never disagree with the pack the server actually runs.
  */
-public record XppSettings(int mbPerXp, int capacityMb, boolean allowBucketInteraction,
-                          boolean skipPaymentInCreative, boolean acceptUndeclaredFluids,
-                          boolean acceptExperienceNamedFluids, boolean remoteDestinationPayments,
+public record XppSettings(int capacityMb, boolean allowBucketInteraction,
+                          boolean skipPaymentInCreative, boolean remoteDestinationPayments,
                           int remotePaymentChunkLoads) {
 
-    public static final XppSettings DEFAULTS = new XppSettings(1, 4000, true, true, false, true, true, 1);
+    public static final XppSettings DEFAULTS = new XppSettings(4000, true, true, true, 1);
 
     private static volatile XppSettings current = DEFAULTS;
 
@@ -21,12 +23,9 @@ public record XppSettings(int mbPerXp, int capacityMb, boolean allowBucketIntera
     public static void reloadFromConfig() {
         try {
             current = new XppSettings(
-                    XppConfig.MB_PER_XP.get(),
                     XppConfig.TANK_CAPACITY_MB.get(),
                     XppConfig.ALLOW_BUCKET_INTERACTION.get(),
                     XppConfig.SKIP_PAYMENT_IN_CREATIVE.get(),
-                    XppConfig.ACCEPT_UNDECLARED_FLUIDS.get(),
-                    XppConfig.ACCEPT_EXPERIENCE_NAMED_FLUIDS.get(),
                     XppConfig.REMOTE_DESTINATION_PAYMENTS.get(),
                     XppConfig.REMOTE_PAYMENT_CHUNK_LOADS.get());
         } catch (IllegalStateException e) {

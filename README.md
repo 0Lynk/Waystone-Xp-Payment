@@ -94,18 +94,7 @@ Optional: [FTB Teams](https://www.curseforge.com/minecraft/mc-mods/ftb-teams-for
 
 ```toml
 [payment]
-  # fallback rate for fluids without an explicit entry, in mB per 1 XP
-  mbPerXp = 1
   skipPaymentInCreative = true
-  acceptUndeclaredFluids = false
-  acceptExperienceNamedFluids = true
-  # "<fluid id or #tag>=<mB per XP>"; recipe-declared fluids are added on top of this list
-  fluidConversions = [
-    "create_enchantment_industry:experience=1",
-    "beyonddimensions:xp_fluid=1",
-    "sophisticatedcore:xp_still=1",
-    "#c:experience=1"
-  ]
 
 [tank]
   capacityMb = 4000                # 4 buckets
@@ -116,21 +105,15 @@ Optional: [FTB Teams](https://www.curseforge.com/minecraft/mc-mods/ftb-teams-for
   remotePaymentChunkLoadsPerTeleport = 1
 ```
 
-The default rate is **1 mB = 1 XP**, matching Create: Enchantment Industry's own experience fluid.
-`acceptExperienceNamedFluids` is a safety net for mods whose fluid id contains the whole word `xp` or `experience`
-but which do not join the `c:experience` tag; turn it off to accept only the list above, tags and recipe
-declarations.
+Rates are **not** configured here any more: how much a fluid is worth is a datapack question.
 
 ## Registering fluids with a datapack or KubeJS
 
-A fluid counts as experience only if it is declared — either in the config list above, or by a
-`waystone_xp_payment:xp_fluid` recipe (datapack JSON, or KubeJS):
+A fluid counts as experience only if a `waystone_xp_payment:xp_fluid` recipe declares it. The mod ships
+declarations for the fluids it has been tested against, so ordinary setups need nothing.
 
 ```json
-{ "type": "waystone_xp_payment:xp_fluid", "fluid": "create_enchantment_industry:experience", "mb_per_xp": 1 }
-```
-```json
-{ "type": "waystone_xp_payment:xp_fluid", "tag": "c:experience", "mb_per_xp": 1 }
+{ "type": "waystone_xp_payment:xp_fluid", "fluid": "create_enchantment_industry:experience", "xp_per_bucket": 1000 }
 ```
 ```js
 // kubejs/server_scripts/waystone_xp_payment.js
@@ -138,13 +121,17 @@ ServerEvents.recipes(event => {
   event.custom({
     type: 'waystone_xp_payment:xp_fluid',
     fluid: 'create_enchantment_industry:experience',
-    mb_per_xp: 1
+    xp_per_bucket: 1000
   })
 })
 ```
 
-Lookup order: config by exact fluid id -> config by tag -> recipe by exact fluid id -> recipe by tag. Setting
-`acceptUndeclaredFluids = true` makes any fluid accepted at `mbPerXp`.
+`xp_per_bucket` is how many XP one bucket (1000 mB) of the fluid is worth, so `1000` means 1 mB = 1 XP.
+Declaring the same fluid again in a higher-priority pack **overrides** the earlier rate, which is how a pack
+reprices a fluid; `"xp_per_bucket": 0` removes a builtin declaration instead. Only exact fluid ids are matched -
+flowing variants follow their still id, and tags are not consulted. The full contract, including how packs
+override each other and how a fluid that is declared nowhere is treated, is in
+`docs/数据包契约-经验流体.md`.
 
 ## Compatibility
 

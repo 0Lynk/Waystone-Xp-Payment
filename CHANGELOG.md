@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+### Changed
+
+- **Fluid rates now come from a datapack, not from the config file**: a `waystone_xp_payment:xp_fluid` recipe is the
+  only way to teach the mod that a fluid is experience, and it now speaks **XP per bucket** (`xp_per_bucket`, a
+  decimal) instead of millibuckets per XP. The old unit could not express a fluid worth more than 1 XP per mB, and a
+  rounded rate there over- or undercharged every teleport without a single log line. The mod ships declarations for
+  the fluids it has been tested against, so existing setups keep working.
+- **Network protocol 4 -> 5**: the rate on the wire changed unit with the datapack format, so server and clients must
+  run the same version.
+
+### Removed
+
+- **`fluidConversions`, `mbPerXp`, `acceptUndeclaredFluids` and `acceptExperienceNamedFluids` are gone** from
+  `config/waystone_xp_payment-common.toml`; a rate read from a config file could disagree with the datapack the
+  server actually runs. Tags are no longer a way to declare a fluid either - only exact ids, with flowing variants
+  following their still id. A pack that relied on `#c:experience` must declare the fluids it cares about.
+- **Name guessing is gone**: a fluid whose id contains "xp" or "experience" is no longer accepted on that basis.
+
+### Known limits
+
+- A tank of a fluid that no pack declares is worth nothing and cannot pay; the fluid stays in the tank, the player
+  pays from their own experience, and the server logs one warning per attempt with the fluid that was rejected.
+- A tank that already holds such a fluid when a server upgrades keeps the fluid but cannot spend it, contrary to the
+  design note that expected it to be cleared.
+- The stored pool index of a pre-upgrade world is converted on load, so a remembered distant tank stays quotable.
 ## 0.3.0 - 2026-10-17
 
 ### Added

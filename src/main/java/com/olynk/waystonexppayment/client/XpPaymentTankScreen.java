@@ -10,6 +10,7 @@ import javax.annotation.Nullable;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.olynk.waystonexppayment.fluid.XpRate;
 import com.olynk.waystonexppayment.menu.XpPaymentTankMenu;
 import com.olynk.waystonexppayment.net.XppAccessPayload;
 import com.olynk.waystonexppayment.net.XppMembersPayload;
@@ -777,7 +778,8 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
 
         String xp = state == null
                 ? ""
-                : Component.translatable("access.pool_xp", state.poolXp(), state.mbPerXp()).getString();
+                : Component.translatable("access.pool_xp", state.poolXp(), mbPerXpLabel(state.xpPerBucketMilli()))
+                        .getString();
         guiGraphics.drawString(font, xp, 8, 32, COLOR_FLUID_TEXT, false);
 
         guiGraphics.fill(8, 44, 248, 48, COLOR_GROOVE);
@@ -791,6 +793,16 @@ public class XpPaymentTankScreen extends AbstractContainerScreen<XpPaymentTankMe
         if (searchBox != null && searchBox.visible) {
             drawInputFrame(guiGraphics);
         }
+    }
+
+    /**
+     * The legacy "mB per XP" label of a rate that arrives in thousandths of an XP per bucket.
+     *
+     * <p>Answers {@code "?"} for an undeclared fluid: it has no rate at all, and printing {@code 0} there would
+     * read as a real conversion instead of "nothing in here can pay".
+     */
+    private static String mbPerXpLabel(int xpPerBucketMilli) {
+        return xpPerBucketMilli <= 0 ? "?" : Integer.toString(new XpRate(xpPerBucketMilli).mbPerXp());
     }
 
     /** The input frame is drawn whether or not the box is visible, so read-only mode shows no empty hole. */

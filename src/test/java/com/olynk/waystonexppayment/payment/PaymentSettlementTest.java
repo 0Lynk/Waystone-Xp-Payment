@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import com.olynk.waystonexppayment.fluid.XpRate;
+
 /**
  * What the bill looks like when the tank cannot honour the plan it agreed to.
  *
@@ -14,9 +16,13 @@ import org.junit.jupiter.api.Test;
  */
 class PaymentSettlementTest {
 
+    private static final XpRate ONE_XP_PER_MB = XpRate.ofBucket(1000);
+
+    private static final XpRate TEN_MB_PER_XP = XpRate.parse(100);
+
     @Test
     void theTankDeliveringTheWholePlanChargesThePlayerOnlyTheirShare() {
-        PaymentSplit plan = PaymentSplit.compute(30, 12, 1, 50);
+        PaymentSplit plan = PaymentSplit.compute(30, 12, ONE_XP_PER_MB, 50);
 
         PaymentSettlement settlement = PaymentSettlement.settle(plan, plan.fluidUsedMb(), 50);
 
@@ -27,7 +33,7 @@ class PaymentSettlementTest {
 
     @Test
     void aTankThatRanDryMovesTheGapToThePlayer() {
-        PaymentSplit plan = PaymentSplit.compute(30, 12, 1, 50);
+        PaymentSplit plan = PaymentSplit.compute(30, 12, ONE_XP_PER_MB, 50);
 
         PaymentSettlement settlement = PaymentSettlement.settle(plan, 0, 50);
 
@@ -38,7 +44,7 @@ class PaymentSettlementTest {
 
     @Test
     void aPartialDrainIsPaidByThePlayerUpToWhatTheyHold() {
-        PaymentSplit plan = PaymentSplit.compute(30, 12, 1, 50);
+        PaymentSplit plan = PaymentSplit.compute(30, 12, ONE_XP_PER_MB, 50);
 
         PaymentSettlement settlement = PaymentSettlement.settle(plan, 5, 20);
 
@@ -50,7 +56,7 @@ class PaymentSettlementTest {
 
     @Test
     void anEmptyPlayerStillOwesWhatTheTankCouldNotPay() {
-        PaymentSplit plan = PaymentSplit.compute(20, 20, 1, 0);
+        PaymentSplit plan = PaymentSplit.compute(20, 20, ONE_XP_PER_MB, 0);
 
         PaymentSettlement settlement = PaymentSettlement.settle(plan, 0, 0);
 
@@ -61,7 +67,7 @@ class PaymentSettlementTest {
 
     @Test
     void aTankCreditedForMoreThanTheCostIsCapped() {
-        PaymentSplit plan = PaymentSplit.compute(10, 100, 1, 0);
+        PaymentSplit plan = PaymentSplit.compute(10, 100, ONE_XP_PER_MB, 0);
 
         PaymentSettlement settlement = PaymentSettlement.settle(plan, 500, 0);
 
@@ -71,7 +77,7 @@ class PaymentSettlementTest {
 
     @Test
     void theRateAppliesToWhatTheTankActuallyGave() {
-        PaymentSplit plan = PaymentSplit.compute(10, 100, 10, 5);
+        PaymentSplit plan = PaymentSplit.compute(10, 100, TEN_MB_PER_XP, 5);
 
         PaymentSettlement settlement = PaymentSettlement.settle(plan, 95, 5);
 
@@ -82,7 +88,7 @@ class PaymentSettlementTest {
 
     @Test
     void aNegativeDrainCountsAsNothingGiven() {
-        PaymentSplit plan = PaymentSplit.compute(10, 100, 1, 0);
+        PaymentSplit plan = PaymentSplit.compute(10, 100, ONE_XP_PER_MB, 0);
 
         PaymentSettlement settlement = PaymentSettlement.settle(plan, -5, 10);
 

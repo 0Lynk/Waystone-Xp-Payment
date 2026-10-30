@@ -123,7 +123,7 @@ public final class XppServerHandler {
             return XppTankHintPayload.Hint.unknown(slot);
         }
         // A recorded amount says nothing about who may use it, so the access question stays open here.
-        return new XppTankHintPayload.Hint(slot, recorded.poolXp(), recorded.mbPerXp(),
+        return new XppTankHintPayload.Hint(slot, recorded.poolXp(), recorded.xpPerBucketMilli(),
                 XppTankHintPayload.Access.UNKNOWN);
     }
 
@@ -139,7 +139,7 @@ public final class XppServerHandler {
             // cannot spend it and quoting it would leak the owner's stock to anyone who right-clicks a waystone.
             return XppTankHintPayload.Hint.denied(slot);
         }
-        return new XppTankHintPayload.Hint(slot, tank.poolXp(), tank.mbPerXp(), access);
+        return new XppTankHintPayload.Hint(slot, tank.poolXp(), tank.xpPerBucketMilli(), access);
     }
 
     /**

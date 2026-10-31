@@ -3,9 +3,37 @@
 Every claim in `README.md` / `CHANGELOG.md` should be traceable to something below. Commands are the ones
 actually run; the environment caveats that change how a command looks are stated where they matter.
 
-**Current release: 0.3.0.** Section 0.3 below is the record for it; section 0 is the 0.2.0 record; sections 1-4 were
-written for 0.1.0 and are kept as they stand. Where they disagree on a number (test count, jar size), section 0.3 wins,
-then section 0, then the older ones.
+**Current release: 0.6.0.** Section 0.6 below is the record for it; section 0.3 is the 0.3.0 record, section 0 the
+0.2.0 one, and sections 1-4 were written for 0.1.0 and are kept as they stand. Where they disagree on a number (test
+count, jar size), section 0.6 wins, then 0.3, then 0, then the older ones.
+
+## 0.6. The 0.6.0 release (2026-10-31)
+
+0.6.0 moved the experience rates out of the config file and into a datapack (`xp_per_bucket`, decimal), made a fluid
+identified by its fluid object rather than by its id string, put one `PoolQuote` behind every "can this tank pay"
+answer, raised the tank to 16 buckets, translated the command replies and added `LangKeysTest`. `CHANGELOG.md` lists
+the changes; the rounds themselves are in `docs/变更记录/2026-11-02_数据包经验费率.md`,
+`docs/变更记录/2026-10-31_流体身份归一.md`, `docs/变更记录/2026-11-02_报价可见与包归属修正.md`,
+`docs/变更记录/2026-11-02_容量上限与提示分叉.md` and `docs/变更记录/2026-11-03_命令回执本地化.md`.
+
+| step | command | result |
+|---|---|---|
+| full build incl. the unit tests (this is what CI runs) | `gradlew clean build --offline` | **BUILD SUCCESSFUL in 7s** (`7 actionable tasks: 5 executed, 2 from cache`) |
+| unit tests | part of the same `gradlew build` | **27 suites, 169 tests, 0 failures, 0 errors** (`build/test-results/test/*.xml` summed) |
+| jar | `build/libs/` | `waystone_xp_payment-0.6.0+mc1.21.1.jar`, 203,666 bytes, sha256 `21376f02ba8681477ddcecc03e019709668573755afc7cf38a984e9116b6e349` |
+| version inside the jar | read `META-INF/neoforge.mods.toml` out of that jar | `version = "0.6.0"`, expanded at build time from `mod_version` in `gradle.properties:13` |
+| modpack deployment | the 0.6.0 jar copied into all six `mods` folders (the test server plus two launchers' instances, including the 216-jar pack) | same sha256 on every side, one `waystone_xp_payment-*.jar` per folder; **the in-game retest is the pack owner's, not done here** |
+
+### Not verified for 0.6.0 (do not claim otherwise)
+
+- The client-side button states as *rendered* after the datapack rewrite: the rebuilt preview, the grey tooltip with
+  numbers, and the 16-bucket screen were exercised by hand in single player only through log lines, not by a
+  side-by-side visual check.
+- Ender IO's flowing variant: no `_flowing` literal exists in `enderio-8.2.12-beta.jar`, so the still-form mapping for
+  that fluid is inferred from `FlowingFluid#getSource`, not observed.
+- A remote destination tank whose fluid is undeclared: the index row and the client hint path were not re-checked after
+  the unit change; only the local tank path is exercised.
+- Everything under "Not verified" in section 0.3 that no later release re-ran.
 
 ## 0. The 0.2.0 release (2026-10-11)
 

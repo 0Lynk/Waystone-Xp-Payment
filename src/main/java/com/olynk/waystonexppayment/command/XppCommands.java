@@ -70,42 +70,51 @@ public final class XppCommands {
     private static int info(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         XpPaymentTankBlockEntity tank = tank(ctx);
         AccessList access = tank.access();
-        ctx.getSource().sendSuccess(() -> Component.literal("Waystone XP Payment tank at "
-                + tank.getBlockPos().toShortString()
-                + " | fluid=" + tank.getTank().getFluid().getHoverName().getString()
-                + " " + tank.getTank().getFluidAmount() + "/" + tank.getTank().getCapacity() + " mB"
-                + " | value=" + tank.poolXp() + " XP"
-                + " | " + FluidRates.describe(tank.getTank().getFluid())
-                + " | mode=" + (access.isWhitelist() ? "whitelist" : "blacklist")
-                + " | players=" + access.players().size() + " teams=" + access.teams().size()), false);
+        ctx.getSource().sendSuccess(() -> Component.translatable("commands.waystone_xp_payment.info.tank",
+                tank.getBlockPos().toShortString(),
+                tank.getTank().getFluid().getHoverName(),
+                tank.getTank().getFluidAmount(),
+                tank.getTank().getCapacity(),
+                tank.poolXp(),
+                FluidRates.describe(tank.getTank().getFluid()),
+                modeName(access.isWhitelist()),
+                access.players().size(),
+                access.teams().size()), false);
         // Legacy entries are counted separately because they are the one thing a reader of this output cannot
         // see anywhere else: they have no UUID to look up, and they are the reason a tank may pay for somebody
         // who is not on the list above.
         int legacy = access.legacyPlayers().size() + access.legacyTeams().size();
         if (legacy > 0) {
-            ctx.getSource().sendSuccess(() -> Component.literal("Legacy name-only entries: " + legacy
-                    + " (visible as id-less rows in the GUI)"), false);
+            ctx.getSource().sendSuccess(
+                    () -> Component.translatable("commands.waystone_xp_payment.info.legacy", legacy), false);
         }
         // Identities only, never names: a UUID is what the list matches on, and a name would go stale.
         int index = 0;
         for (UUID id : access.players()) {
             int line = index++;
-            ctx.getSource().sendSuccess(() -> Component.literal("player " + line + " " + id), false);
+            ctx.getSource().sendSuccess(
+                    () -> Component.translatable("commands.waystone_xp_payment.info.player", line, id.toString()), false);
         }
         index = 0;
         for (UUID id : access.teams()) {
             int line = index++;
-            ctx.getSource().sendSuccess(() -> Component.literal("team " + line + " " + id), false);
+            ctx.getSource().sendSuccess(
+                    () -> Component.translatable("commands.waystone_xp_payment.info.team", line, id.toString()), false);
         }
         return 1;
+    }
+
+    /** The two access modes are already named for the GUI; a second pair of words would only drift from it. */
+    private static Component modeName(boolean whitelist) {
+        return Component.translatable(whitelist ? "access.mode.whitelist" : "access.mode.blacklist");
     }
 
     private static int mode(CommandContext<CommandSourceStack> ctx, boolean whitelist) throws CommandSyntaxException {
         XpPaymentTankBlockEntity tank = tank(ctx);
         tank.access().setWhitelist(whitelist);
         tank.setChanged();
-        ctx.getSource().sendSuccess(() -> Component.literal("Tank access mode is now "
-                + (whitelist ? "whitelist" : "blacklist")), true);
+        ctx.getSource().sendSuccess(
+                () -> Component.translatable("commands.waystone_xp_payment.mode.changed", modeName(whitelist)), true);
         return 1;
     }
 
@@ -124,9 +133,10 @@ public final class XppCommands {
         }
         boolean added = tank.access().addPlayer(profile.getId());
         tank.setChanged();
-        ctx.getSource().sendSuccess(() -> Component.literal(added
-                ? "Added player '" + profile.getName() + "' (" + profile.getId() + ") to the tank access list"
-                : "Player '" + profile.getName() + "' was already on the tank access list"), true);
+        ctx.getSource().sendSuccess(() -> Component.translatable(added
+                ? "commands.waystone_xp_payment.add.player"
+                : "commands.waystone_xp_payment.add.player.already",
+                profile.getName(), profile.getId().toString()), true);
         return added ? 1 : 0;
     }
 
@@ -147,9 +157,9 @@ public final class XppCommands {
         }
         tank.setChanged();
         boolean result = removed;
-        ctx.getSource().sendSuccess(() -> Component.literal(result
-                ? "Removed '" + name + "' from the tank access list"
-                : "No entry matched '" + name + "'"), true);
+        ctx.getSource().sendSuccess(() -> Component.translatable(result
+                ? "commands.waystone_xp_payment.remove.player"
+                : "commands.waystone_xp_payment.remove.player.none", name), true);
         return result ? 1 : 0;
     }
 
@@ -169,9 +179,10 @@ public final class XppCommands {
         TeamResolver.TeamInfo team = match.get();
         boolean added = tank.access().addTeam(team.id());
         tank.setChanged();
-        ctx.getSource().sendSuccess(() -> Component.literal(added
-                ? "Added team '" + team.name() + "' (" + team.id() + ") to the tank access list"
-                : "Team '" + team.name() + "' was already on the tank access list"), true);
+        ctx.getSource().sendSuccess(() -> Component.translatable(added
+                ? "commands.waystone_xp_payment.add.team"
+                : "commands.waystone_xp_payment.add.team.already",
+                team.name(), team.id().toString()), true);
         return added ? 1 : 0;
     }
 
@@ -190,9 +201,9 @@ public final class XppCommands {
         }
         tank.setChanged();
         boolean result = removed;
-        ctx.getSource().sendSuccess(() -> Component.literal(result
-                ? "Removed team '" + name + "' from the tank access list"
-                : "No team entry matched '" + name + "'"), true);
+        ctx.getSource().sendSuccess(() -> Component.translatable(result
+                ? "commands.waystone_xp_payment.remove.team"
+                : "commands.waystone_xp_payment.remove.team.none", name), true);
         return result ? 1 : 0;
     }
 

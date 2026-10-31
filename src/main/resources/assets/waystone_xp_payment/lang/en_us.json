@@ -2,6 +2,7 @@
   "block.waystone_xp_payment.xp_payment_tank": "XP Payment Tank",
   "gui.waystone_xp_payment.fluid_cost": "Costs %s XP, paid from the tank below",
   "gui.waystone_xp_payment.tank_short": "The tank covers %s XP, this trip needs %s XP (%s mB short)",
+  "gui.waystone_xp_payment.tank_short_of_reach": "The tank covers at most %s XP, this trip needs %s XP; the remaining %s XP is yours to pay",
   "commands.waystone_xp_payment.not_looking_at_tank": "Look at an XP payment tank within 10 blocks first.",
   "commands.waystone_xp_payment.no_team_mod": "No supported team mod is installed.",
   "commands.waystone_xp_payment.no_permission": "You need operator permissions to change this tank's access list.",

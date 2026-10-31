@@ -97,7 +97,7 @@ Optional: [FTB Teams](https://www.curseforge.com/minecraft/mc-mods/ftb-teams-for
   skipPaymentInCreative = true
 
 [tank]
-  capacityMb = 4000                # 4 buckets
+  capacityMb = 16000               # 16 buckets, the ceiling; existing tanks keep their old capacity
   allowBucketInteraction = true
   # let the pool under the *destination* pay while its chunk is unloaded
   remoteDestinationPayments = true

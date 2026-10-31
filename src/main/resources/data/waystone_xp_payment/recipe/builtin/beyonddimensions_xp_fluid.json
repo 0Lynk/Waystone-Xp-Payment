@@ -1,5 +1,5 @@
 {
   "type": "waystone_xp_payment:xp_fluid",
   "fluid": "beyonddimensions:xp_fluid",
-  "xp_per_bucket": 1000
+  "xp_per_bucket": 10
 }

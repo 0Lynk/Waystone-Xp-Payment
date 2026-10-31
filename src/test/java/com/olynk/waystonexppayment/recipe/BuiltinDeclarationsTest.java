@@ -71,6 +71,22 @@ class BuiltinDeclarationsTest {
         assertFalse(files().isEmpty(), "a build without builtin declarations makes every tank worthless");
     }
 
+    @Test
+    void bothFluidsThatShippedAsPlaceholdersNowCarryTheMeasuredRate() throws IOException {
+        assertEquals(10.0, rateOf("beyonddimensions:xp_fluid"));
+        assertEquals(10.0, rateOf("sophisticatedcore:xp_still"));
+    }
+
+    private static double rateOf(String fluid) throws IOException {
+        for (Path file : files()) {
+            JsonObject json = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+            if (fluid.equals(json.get("fluid").getAsString())) {
+                return json.get("xp_per_bucket").getAsDouble();
+            }
+        }
+        throw new AssertionError("no builtin declaration for " + fluid);
+    }
+
     private static List<Path> files() throws IOException {
         try (var stream = Files.list(BUILTIN_DIR)) {
             return stream.filter(path -> path.toString().endsWith(".json")).sorted().toList();

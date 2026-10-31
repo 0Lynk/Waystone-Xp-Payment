@@ -6,6 +6,10 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+- **Beyond Dimensions and Sophisticated Core are priced at 10 XP per bucket**: both shipped as placeholders at 1000
+  because nobody had measured them. Measured against the same exchanger that produced the other cheap fluids, they
+  are worth a full bucket per 10 XP, like Ender IO. Every fluid in the built-in table now has a measured rate behind
+  it.
 - **The teleport tooltip says "paid from the tank", not "from the tank below"**: the paying tank can sit under the
   destination, so naming a direction was wrong half the time.
 - **One second line instead of two**: the line under that cost used to change shape - nothing at all when the tank
@@ -45,10 +49,11 @@ All notable changes to this project are documented here.
 - **Network protocol 4 -> 5**: the rate on the wire changed unit with the datapack format, so server and clients must
   run the same version.
 - **Built-in rates corrected against measurement**: Create: Enchantment Industry's liquid experience is worth
-  **200 XP per bucket**, not 1000 - measured as 10 XP for 50 mB. Four more fluids joined the built-in table at
-  10 XP per bucket (10 XP for a full bucket): Industrial Foregoing `essence`, Cyclic `xpjuice`, OpenBlocks Reborn
-  `xp_juice`, Ender IO `fluid_xp_juice_still`. A tank of Create liquid experience therefore pays a fifth of what it
-  paid in 0.3.x; raise the rate in a datapack if your pack prices it differently.
+  **200 XP per bucket**, not 1000 - measured as 10 XP for 50 mB. Six more fluids sit at 10 XP per bucket (10 XP for a
+  full bucket): Industrial Foregoing `essence`, Cyclic `xpjuice`, OpenBlocks Reborn `xp_juice`, Ender IO
+  `fluid_xp_juice_still`, Beyond Dimensions `xp_fluid` and Sophisticated Core `xp_still`. A tank of Create liquid
+  experience therefore pays a fifth of what it paid in 0.3.x; raise the rate in a datapack if your pack prices it
+  differently.
 - **Still/flowing variants resolve in three naming styles**: `x` / `flowing_x`, `x_still` / `x_flowing` and
   `x_flowing` / `x_still`. Ender IO and Sophisticated Core use the suffixed pair, which previously fell through and
   left a tank holding the flowing variant worthless.

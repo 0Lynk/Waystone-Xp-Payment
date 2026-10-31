@@ -125,7 +125,7 @@ rebase 合并 → 删除分支。只有 JSON 变化时不必重新部署 jar，�
 | 文件写在 `data/<ns>/recipe/` 之外的目录 | 静默不加载 | 必须在 `recipe/` 下 |
 | 直接改 `run/` 里的开发数据包就以为改了内置表 | 只在本地生效 | 内置表在 `src/main/resources/` |
 
-## 附录 A：当前内置清单（2026-10-31）
+## 附录 A：当前内置清单（2026-11-03）
 
 | 流体 id | `xp_per_bucket` | 来源依据 | 状态 |
 |---|---|---|---|
@@ -134,8 +134,8 @@ rebase 合并 → 删除分支。只有 JSON 变化时不必重新部署 jar，�
 | `cyclic:xpjuice` | 10 | 同上（同一个兑换器） | 已验证 |
 | `openblocks_reborn:xp_juice` | 10 | 同上 | 已验证 |
 | `enderio:fluid_xp_juice_still` | 10 | 同上；声明 still 侧，`_flowing` 由 counterpart 规则自动同率 | 已验证 |
-| `beyonddimensions:xp_fluid` | 1000 | 无实测，沿用了 CEI 旧值 | `[NEEDS VERIFICATION]` |
-| `sophisticatedcore:xp_still` | 1000 | 无实测，沿用了 CEI 旧值 | `[NEEDS VERIFICATION]` |
+| `beyonddimensions:xp_fluid` | 10 | 机主实测：与 Ender IO 等四种同价 | 已验证 |
+| `sophisticatedcore:xp_still` | 10 | 机主实测：与 Ender IO 等四种同价 | 已验证 |
 
 两条换算基准都是「**造出这份流体要花多少经验**」（正向兑换），不是「抽回来能得多少」，因为正向是机主实测到的、
 反向没有被测过。两者的差别在附魔之瓶上很明显：
@@ -146,8 +146,10 @@ rebase 合并 → 删除分支。只有 JSON 变化时不必重新部署 jar，�
 也就是说四种「便宜」流体的瓶子套利空间更大。这不影响本 mod 的账：储罐按标价付传送费，
 付得少只是玩家更省，不会凭空造经验；但如果哪天要按「瓶子价」定价，改的就是这张表里的数字。
 
-最后两条仍需要一次实测：任一整合包里用 `1.21.1` 客户端把 1000 mB 抽成玩家经验，数一下涨多少，
-`xp_per_bucket = XP × 1000 / mB`。
+另外两种（Beyond Dimensions、Sophisticated Core）原先沿用了 CEI 的旧假设 1000，机主 2026-11-03 实测它们
+与上面四种「便宜」流体同价，已一并改为 10。至此七条全部有实测依据，表里不再有假设值。
+
+换新的流体仍然按第 2 步取证：把 1000 mB 抽成玩家经验数一下涨多少，`xp_per_bucket = XP × 1000 / mB`。
 
 ## 附录 B：生态候选（2026-10 检索，未进内置表）
 

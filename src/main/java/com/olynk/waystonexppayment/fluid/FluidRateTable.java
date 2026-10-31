@@ -63,7 +63,15 @@ public final class FluidRateTable {
         return byFluidId.keySet();
     }
 
-    /** The same fluid id with {@code flowing_} added to, or removed from, its path. */
+    /**
+     * The same fluid id with its still/flowing marker flipped.
+     *
+     * <p>Mods spell the pair three different ways and all three are in the wild: vanilla-style
+     * {@code x} / {@code flowing_x}, Ender IO's {@code fluid_xp_juice_still} / {@code ..._flowing}, and
+     * Sophisticated Core's {@code xp_still} / {@code xp_flowing}. A datapack author declares whichever id the
+     * mod registered; the other half of the pair has to resolve to it, otherwise a tank that happens to hold
+     * the flowing variant pays nothing.
+     */
     static String counterpartId(String fluidId) {
         int colon = fluidId.indexOf(':');
         if (colon < 0 || colon == fluidId.length() - 1) {
@@ -73,6 +81,12 @@ public final class FluidRateTable {
         String path = fluidId.substring(colon + 1);
         if (path.startsWith("flowing_")) {
             return namespace + ":" + path.substring("flowing_".length());
+        }
+        if (path.endsWith("_still")) {
+            return namespace + ":" + path.substring(0, path.length() - "_still".length()) + "_flowing";
+        }
+        if (path.endsWith("_flowing")) {
+            return namespace + ":" + path.substring(0, path.length() - "_flowing".length()) + "_still";
         }
         return namespace + ":flowing_" + path;
     }

@@ -13,6 +13,14 @@ All notable changes to this project are documented here.
   the fluids it has been tested against, so existing setups keep working.
 - **Network protocol 4 -> 5**: the rate on the wire changed unit with the datapack format, so server and clients must
   run the same version.
+- **Built-in rates corrected against measurement**: Create: Enchantment Industry's liquid experience is worth
+  **200 XP per bucket**, not 1000 - measured as 10 XP for 50 mB. Four more fluids joined the built-in table at
+  10 XP per bucket (10 XP for a full bucket): Industrial Foregoing `essence`, Cyclic `xpjuice`, OpenBlocks Reborn
+  `xp_juice`, Ender IO `fluid_xp_juice_still`. A tank of Create liquid experience therefore pays a fifth of what it
+  paid in 0.3.x; raise the rate in a datapack if your pack prices it differently.
+- **Still/flowing variants resolve in three naming styles**: `x` / `flowing_x`, `x_still` / `x_flowing` and
+  `x_flowing` / `x_still`. Ender IO and Sophisticated Core use the suffixed pair, which previously fell through and
+  left a tank holding the flowing variant worthless.
 
 ### Removed
 

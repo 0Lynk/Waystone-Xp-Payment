@@ -125,35 +125,48 @@ rebase 合并 → 删除分支。只有 JSON 变化时不必重新部署 jar，�
 | 文件写在 `data/<ns>/recipe/` 之外的目录 | 静默不加载 | 必须在 `recipe/` 下 |
 | 直接改 `run/` 里的开发数据包就以为改了内置表 | 只在本地生效 | 内置表在 `src/main/resources/` |
 
-## 附录 A：当前内置清单（2026-11-02）
+## 附录 A：当前内置清单（2026-10-31）
 
 | 流体 id | `xp_per_bucket` | 来源依据 | 状态 |
 |---|---|---|---|
-| `create_enchantment_industry:experience` | 1000 | 实测：罐内 12 mB → 12 XP（服务端日志与 `/data get` 对账） | 已验证 |
-| `beyonddimensions:xp_fluid` | 1000 | 与 CEI 同率假设（该 mod 的 `block.beyonddimensions.xp_fluid` = "Liquid XP"） | `[NEEDS VERIFICATION]` |
-| `sophisticatedcore:xp_still` | 1000 | 与 CEI 同率假设（`item.sophisticatedcore.xp_bucket` = "Bucket of Experience"，且加入 `c:experience`） | `[NEEDS VERIFICATION]` |
+| `create_enchantment_industry:experience` | 200 | 实测：10 XP 换 50 mB（机主 2026-10-31）；旁证：10 mB 注一瓶附魔之瓶 | 已验证 |
+| `industrialforegoing:essence` | 10 | 实测：10 XP 换 1000 mB；旁证：250 mB 一瓶附魔之瓶 | 已验证 |
+| `cyclic:xpjuice` | 10 | 同上（同一个兑换器） | 已验证 |
+| `openblocks_reborn:xp_juice` | 10 | 同上 | 已验证 |
+| `enderio:fluid_xp_juice_still` | 10 | 同上；声明 still 侧，`_flowing` 由 counterpart 规则自动同率 | 已验证 |
+| `beyonddimensions:xp_fluid` | 1000 | 无实测，沿用了 CEI 旧值 | `[NEEDS VERIFICATION]` |
+| `sophisticatedcore:xp_still` | 1000 | 无实测，沿用了 CEI 旧值 | `[NEEDS VERIFICATION]` |
 
-后两条需要一次实测把状态改成「已验证」：任一整合包里用 `1.21.1` 客户端把 1000 mB 抽成玩家经验，
-数一下涨多少。
+两条换算基准都是「**造出这份流体要花多少经验**」（正向兑换），不是「抽回来能得多少」，因为正向是机主实测到的、
+反向没有被测过。两者的差别在附魔之瓶上很明显：
 
-## 附录 B：生态候选（2026-11 检索，未进内置表）
+- CEI：`xp_per_bucket 200` ⇒ 10 mB ≈ 2 XP 的标价，但 10 mB 能注出一瓶附魔之瓶（3–11 XP）——瓶子比标价值钱；
+- 另外四种：`xp_per_bucket 10` ⇒ 250 mB ≈ 2.5 XP 的标价，一瓶附魔之瓶同样 3–11 XP。
 
-检索方式：① 扫描整合包内 216 个 jar 的经验流体贴图（结果见 A 表三项，**没有第四项**）；
-② 联网检索 1.21.1 / NeoForge 的「液态经验」类 mod。第 ① 步可以复用仓库里的脚本：
+也就是说四种「便宜」流体的瓶子套利空间更大。这不影响本 mod 的账：储罐按标价付传送费，
+付得少只是玩家更省，不会凭空造经验；但如果哪天要按「瓶子价」定价，改的就是这张表里的数字。
+
+最后两条仍需要一次实测：任一整合包里用 `1.21.1` 客户端把 1000 mB 抽成玩家经验，数一下涨多少，
+`xp_per_bucket = XP × 1000 / mB`。
+
+## 附录 B：生态候选（2026-10 检索，未进内置表）
+
+检索方式：① 扫描整合包内 jar 的经验流体贴图；② 联网检索 1.21.1 / NeoForge 的「液态经验」类 mod。
+第 ① 步可以复用仓库里的脚本：
 
 ```powershell
 .\tools\find-xp-fluids.ps1 -ModsDirectory '<实例>\minecraft\mods'
 ```
 
 它只按贴图文件名找**候选**（`*_still.png` / `*_flow*.png` 里带 xp / experience / juice / essence），
-命中不等于有效——仍然要回到第 1、2 步取证。以下 mod 存在经验流体，但**id 与汇率都未在本仓库验证**，
-不要凭名字直接加：
+命中不等于有效——仍然要回到第 1、2 步取证。
+
+已进表（2026-10-31 实测）：Create: Enchantment Industry、Industrial Foregoing、Cyclic、
+OpenBlocks Reborn、Ender IO。仍未验证的候选：
 
 | mod | 线索 | 缺什么 |
 |---|---|---|
-| Cyclic | 有「液态经验（Experience）」流体条目 | 1.21.1 NeoForge 版本的流体 id、汇率 |
 | Reliquary | 长期有 XP juice | 1.21.1 NeoForge 版本是否还在、id、汇率 |
-| Ender IO | `xp_juice` 存在多年 | 1.21.1 属于 alpha，id/汇率需实测 |
 | Liquid Experience（Modrinth 独立 mod） | 名字与功能都符合 | 支持的版本、id、汇率 |
 | XP Works | 名字指向经验 | 同上；且需确认是流体而非物品 |
 

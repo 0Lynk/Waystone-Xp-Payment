@@ -39,6 +39,21 @@ class FluidRateTableTest {
     }
 
     @Test
+    void aSuffixedFlowingVariantFollowsItsStillSibling() {
+        // Ender IO and Sophisticated Core spell the pair with a suffix instead of a prefix.
+        FluidRateTable table = FluidRateTable.builder().declare("a:fluid_xp_still", ONE_XP_PER_MB, "test").build();
+
+        assertEquals(ONE_XP_PER_MB, table.rateFor("a:fluid_xp_flowing").orElseThrow());
+    }
+
+    @Test
+    void aSuffixedStillVariantFollowsItsFlowingSibling() {
+        FluidRateTable table = FluidRateTable.builder().declare("a:xp_flowing", ONE_XP_PER_MB, "test").build();
+
+        assertEquals(ONE_XP_PER_MB, table.rateFor("a:xp_still").orElseThrow());
+    }
+
+    @Test
     void anUndeclaredFluidIsNotExperience() {
         FluidRateTable table = FluidRateTable.builder().declare("a:xp", ONE_XP_PER_MB, "test").build();
 

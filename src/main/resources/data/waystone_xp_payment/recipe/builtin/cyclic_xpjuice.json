@@ -1,0 +1,5 @@
+{
+  "type": "waystone_xp_payment:xp_fluid",
+  "fluid": "cyclic:xpjuice",
+  "xp_per_bucket": 10
+}

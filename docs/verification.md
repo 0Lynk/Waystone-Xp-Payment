@@ -20,8 +20,9 @@ and the teleport tooltip stopped claiming which tank pays while collapsing three
 | unit tests | part of the same `gradlew build` | **27 suites, 167 tests, 0 failures, 0 errors** (`build/test-results/test/*.xml` summed) |
 | rate correction, negative check | set `sophisticatedcore_xp_still.json` back to 1000, run the tests | `BuiltinDeclarationsTest.java:77` fails (`167 tests completed, 1 failed`); restored -> green |
 | tooltip wording, negative check | delete the Chinese `tank_cover` line, run the tests | `LangKeysTest` 4 tests, 2 failures (`bothFilesCarryTheSameKeys`); restored -> green |
-| jar | built from the merge commit of PR #67 and the same file that was published and deployed | `waystone_xp_payment-0.6.1+mc1.21.1.jar`, see the release record below for the exact size and sha256 |
+| jar | built from the merge commit of PR #68 and the same file that was published and deployed | `waystone_xp_payment-0.6.1+mc1.21.1.jar`, 203,427 bytes, sha256 `c61601acb6ef0db9a52a3bfc3bc3e162a1c5c2fc979d7c0496f5632e2c180f7e`, 140 zip entries |
 | version inside the jar | read `META-INF/neoforge.mods.toml` out of that jar | `version = "0.6.1"`, expanded at build time from `mod_version` in `gradle.properties:13` |
+| published asset | GitHub release `v0.6.1` (tag on `a0047710`), asset id `695602109` | `state=uploaded`, `size=203427`, `digest=sha256:c61601acb6ef0db9a52a3bfc3bc3e162a1c5c2fc979d7c0496f5632e2c180f7e` - byte-identical to the deployed jar |
 | modpack deployment | the 0.6.1 jar copied into all six `mods` folders (the test server plus two launchers' instances, including the 216-jar pack) | same sha256 on every side, one `waystone_xp_payment-*.jar` per folder; **the in-game retest is the pack owner's, not done here** |
 | server smoke | `gradlew runServer` then RCON `stop` | `0.6.1 initialized`, `Loaded 8 experience fluid declaration(s), 8 fluid(s) in the table`, no ERROR, clean stop |
 

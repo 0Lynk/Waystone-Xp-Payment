@@ -20,8 +20,9 @@ the changes; the rounds themselves are in `docs/变更记录/2026-11-02_数据�
 |---|---|---|
 | full build incl. the unit tests (this is what CI runs) | `gradlew clean build --offline` | **BUILD SUCCESSFUL in 7s** (`7 actionable tasks: 5 executed, 2 from cache`) |
 | unit tests | part of the same `gradlew build` | **27 suites, 169 tests, 0 failures, 0 errors** (`build/test-results/test/*.xml` summed) |
-| jar | `build/libs/` | `waystone_xp_payment-0.6.0+mc1.21.1.jar`, 203,666 bytes, sha256 `21376f02ba8681477ddcecc03e019709668573755afc7cf38a984e9116b6e349` |
+| jar | `build/libs/` after the merge commit, i.e. the file that was published and deployed | `waystone_xp_payment-0.6.0+mc1.21.1.jar`, 203,666 bytes, sha256 `eaf9d8264ff76d279cdeab2f4c95a275a05681ce06d9fab3953588c1135d466d` |
 | version inside the jar | read `META-INF/neoforge.mods.toml` out of that jar | `version = "0.6.0"`, expanded at build time from `mod_version` in `gradle.properties:13` |
+| published asset | GitHub release `v0.6.0` (tag on `990da9be`), asset id `695484235` | `state=uploaded`, `size=203666`, `digest=sha256:eaf9d8264ff76d279cdeab2f4c95a275a05681ce06d9fab3953588c1135d466d` - byte-identical to the deployed jar, unlike 0.3.0 |
 | modpack deployment | the 0.6.0 jar copied into all six `mods` folders (the test server plus two launchers' instances, including the 216-jar pack) | same sha256 on every side, one `waystone_xp_payment-*.jar` per folder; **the in-game retest is the pack owner's, not done here** |
 
 ### Not verified for 0.6.0 (do not claim otherwise)

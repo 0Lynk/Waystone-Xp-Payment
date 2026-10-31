@@ -1,6 +1,7 @@
 {
   "block.waystone_xp_payment.xp_payment_tank": "经验流体储罐",
   "gui.waystone_xp_payment.fluid_cost": "需要 %s 点经验，由下方储罐支付",
+  "gui.waystone_xp_payment.tank_short": "储罐只值 %s 点经验，本次需要 %s 点（还差 %s mB）",
   "commands.waystone_xp_payment.not_looking_at_tank": "请先看向 10 格内的经验流体储罐。",
   "commands.waystone_xp_payment.no_team_mod": "未安装支持的队伍模组。",
   "commands.waystone_xp_payment.no_permission": "修改储罐白/黑名单需要管理员权限。",

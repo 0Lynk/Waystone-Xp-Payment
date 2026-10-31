@@ -1,7 +1,6 @@
 package com.olynk.waystonexppayment.recipe;
 
 import com.olynk.waystonexppayment.fluid.FluidDeclaration;
-import com.olynk.waystonexppayment.fluid.FluidIds;
 import com.olynk.waystonexppayment.fluid.XpRate;
 import com.olynk.waystonexppayment.registry.XppRegistry;
 
@@ -13,7 +12,6 @@ import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
  * Data-driven statement that one fluid counts as experience and what a bucket of it is worth.
@@ -66,12 +64,6 @@ public class XpFluidRecipe implements Recipe<RecipeInput> {
     public FluidDeclaration toDeclaration(String recipeId, int packOrder, String packId) {
         XpRate rate = unregisters() ? null : XpRate.parse(xpPerBucket);
         return new FluidDeclaration(fluid.toString(), rate, packId + ": " + recipeId, packOrder, recipeId);
-    }
-
-    public boolean matchesFluid(FluidStack stack) {
-        // The still id of whatever is in the stack, so a declaration of the still form also answers for the
-        // flowing form a pipe just poured in.
-        return !stack.isEmpty() && fluid.toString().equals(FluidIds.idOf(stack));
     }
 
     // A registration entry, never a craftable recipe.

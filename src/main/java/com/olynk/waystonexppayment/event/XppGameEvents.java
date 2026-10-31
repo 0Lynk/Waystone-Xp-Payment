@@ -15,7 +15,6 @@ import com.olynk.waystonexppayment.registry.XppRegistry;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -83,8 +82,11 @@ public final class XppGameEvents {
 
     /** The pack a recipe file came from, so two packs claiming the same fluid can be ordered by priority. */
     private static String sourcePackOf(ResourceManager resources, ResourceLocation recipeId) {
+        // Relative to the pack root: the resource manager prepends "data/<namespace>/", so adding the type
+        // directory here looks up "data/<ns>/data/recipe/..." and silently never matches, which is how every
+        // declaration ended up attributed to "unknown" and pack priority degraded to recipe-id order.
         ResourceLocation file = ResourceLocation.fromNamespaceAndPath(recipeId.getNamespace(),
-                PackType.SERVER_DATA.getDirectory() + "/" + "recipe/" + recipeId.getPath() + ".json");
+                "recipe/" + recipeId.getPath() + ".json");
         return resources.getResource(file).map(Resource::sourcePackId).orElse("unknown");
     }
 

@@ -179,17 +179,10 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
             Integer poolXp = knownPoolXp();
             if (poolXp != null) {
                 PoolQuote quote = PoolQuote.of(costXp, poolXp, knownRate(), player.totalExperience);
-                // A tank of a cheap fluid holds plenty of mB and little XP; saying only "costs 27 XP" makes a grey
-                // entry look like a bug. The numbers are what an operator can act on.
-                if (!quote.affordable()) {
-                    Integer capacity = payer == null ? null : payer.capacityMb();
-                    boolean fillable = capacity != null && quote.topUpWouldCloseTheGap(capacity);
-                    tooltip.add(fillable
-                            ? Component.translatable("gui.waystone_xp_payment.tank_short", quote.xpFromTank(),
-                                    costXp, quote.missingMb()).withStyle(ChatFormatting.RED)
-                            : Component.translatable("gui.waystone_xp_payment.tank_short_of_reach",
-                                    quote.xpFromTank(), costXp, quote.missingXp()).withStyle(ChatFormatting.RED));
-                }
+                // One sentence whatever the numbers are: a line that changes shape between "top up the tank" and
+                // "the fare is beyond a full tank" reads like two different features.
+                tooltip.add(Component.translatable("gui.waystone_xp_payment.tank_cover", quote.xpFromTank(), costXp)
+                        .withStyle(quote.affordable() ? ChatFormatting.GRAY : ChatFormatting.RED));
             }
         }
     }

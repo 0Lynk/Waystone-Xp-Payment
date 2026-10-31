@@ -96,28 +96,4 @@ class PoolQuoteTest {
         assertEquals(0, quote.missingXp());
         assertTrue(quote.affordable());
     }
-
-    @Test
-    void aGapTheTankCanStillAbsorbIsWorthFilling() {
-        // 10 XP/bucket holds 1000 mB for 10 XP, so a 17 XP gap is 1700 mB and 3000 mB are still free.
-        PoolQuote quote = PoolQuote.of(27, 10, TEN_XP_PER_BUCKET, 0);
-
-        assertTrue(quote.topUpWouldCloseTheGap(4000));
-    }
-
-    @Test
-    void aGapBeyondTheFreeRoomIsNotWorthFilling() {
-        PoolQuote quote = PoolQuote.of(27, 10, TEN_XP_PER_BUCKET, 0);
-
-        assertFalse(quote.topUpWouldCloseTheGap(2000));
-    }
-
-    @Test
-    void aFullTankCannotAbsorbAnything() {
-        // 40 XP is exactly a full 4000 mB of a 10 XP/bucket fluid, so a 100 XP fare is 60 XP beyond reach.
-        PoolQuote quote = PoolQuote.of(100, 40, TEN_XP_PER_BUCKET, 0);
-
-        assertEquals(6000, quote.missingMb());
-        assertFalse(quote.topUpWouldCloseTheGap(4000));
-    }
 }

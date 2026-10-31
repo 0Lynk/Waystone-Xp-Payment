@@ -32,8 +32,10 @@ public final class XppConfig {
         builder.comment("Payment tank device").push("tank");
 
         TANK_CAPACITY_MB = builder
-                .comment("Internal tank capacity in mB. 4000 mB = 4 buckets.")
-                .defineInRange("capacityMb", 4000, 1000, 1_000_000);
+                .comment("Internal tank capacity in mB. 16000 mB = 16 buckets.",
+                        "The ceiling exists because a tank is a wallet, not a storage block: at 10 XP/bucket a",
+                        "16-bucket tank already covers every fare Waystones can charge by default (max 27 XP).")
+                .defineInRange("capacityMb", 16000, 1000, 16000);
 
         ALLOW_BUCKET_INTERACTION = builder
                 .comment("Whether right-clicking the tank with a bucket fills/drains it.",

@@ -6,6 +6,14 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+- **The tank holds 16 buckets instead of 4, and 16000 mB is now the ceiling**: a tank is a wallet, not a storage
+  block, and a fare capped at 27 XP is worth 2700 mB of a 10 XP/bucket fluid. Tanks already placed keep the capacity
+  they were built with; break and replace one to grow it. A config that used to allow up to 1,000,000 mB is clamped
+  to 16000 on load.
+- **A tank that cannot cover a trip now says which of two things is wrong**: if the missing fluid still fits, the
+  tooltip keeps "(%s mB short)" — topping the tank up fixes it. If the fare is beyond what a full tank is worth (only
+  possible once `max_xp_cost` is raised past a full tank's value), it says how much the tank covers and that the rest
+  is the player's to pay, instead of sending someone to fill a tank that is already full.
 - **Fluid rates now come from a datapack, not from the config file**: a `waystone_xp_payment:xp_fluid` recipe is the
   only way to teach the mod that a fluid is experience, and it now speaks **XP per bucket** (`xp_per_bucket`, a
   decimal) instead of millibuckets per XP. The old unit could not express a fluid worth more than 1 XP per mB, and a

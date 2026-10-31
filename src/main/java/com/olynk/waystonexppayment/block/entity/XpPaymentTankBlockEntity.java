@@ -241,6 +241,16 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     }
 
     /**
+     * How much fluid this tank could hold, which bounds every pool it will ever have.
+     *
+     * <p>Read by the client preview to tell "top the tank up" apart from "the tank cannot hold enough at this
+     * rate": a fare capped above what a full tank is worth can only be closed out of the player's own XP.
+     */
+    public int capacityMb() {
+        return tank.getCapacity();
+    }
+
+    /**
      * XP the tank can pay with, as this side sees it.
      *
      * <p>The server's number wins whenever it has arrived: its rate table is the only one that knows fluids

@@ -22,6 +22,16 @@ All notable changes to this project are documented here.
   `x_flowing` / `x_still`. Ender IO and Sophisticated Core use the suffixed pair, which previously fell through and
   left a tank holding the flowing variant worthless.
 
+### Fixed
+
+- **A fluid is now identified by the fluid object, not by its id string**: `FluidIds.canonical` asks a
+  `FlowingFluid` for its still form (`getSource()`), which is the only answer that cannot be wrong. Name matching
+  stays as the fallback for fluid implementations that are not `FlowingFluid`. Nothing in the payment path compares
+  raw ids any more.
+- **Tanks store the still form**: a pipe pouring `...:flowing_experience` into a tank no longer leaves it holding a
+  fluid that no datapack declared. Tanks saved by older versions are rewritten in place on load; amount and XP value
+  are unchanged, and the tank's own drain side still hands out whatever it stores.
+
 ### Removed
 
 - **`fluidConversions`, `mbPerXp`, `acceptUndeclaredFluids` and `acceptExperienceNamedFluids` are gone** from

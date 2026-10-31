@@ -6,6 +6,14 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+- **Every command reply is translated**: `/waystone_xp_payment access ...` used to answer in hard-coded English while
+  the rest of the mod spoke the player's language. All nine replies (tank summary, legacy entries, per-player and
+  per-team lines, mode change, add/remove confirmations) are lang keys now, and the tank summary reuses the same
+  "Whitelist"/"Blacklist" words the GUI shows instead of a second set of terms. A `LangKeysTest` reads both lang
+  files back and fails the build when a key exists on one side only, when a line asks for a different number of
+  arguments than its translation, when English carries Chinese, or when a Chinese line was never translated.
+- **`access.add_team` in English says "+ Add my team"** again, matching the Chinese "+ 添加我的队伍"; the earlier
+  "+ Add teams" read as if it added every team at once.
 - **The tank holds 16 buckets instead of 4, and 16000 mB is now the ceiling**: a tank is a wallet, not a storage
   block, and a fare capped at 27 XP is worth 2700 mB of a 10 XP/bucket fluid. **If you already have a config file,
   set `capacityMb = 16000` there yourself** - NeoForge never rewrites a value that is already present, so the new

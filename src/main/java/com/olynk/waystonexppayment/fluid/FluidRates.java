@@ -55,14 +55,19 @@ public final class FluidRates {
         if (stack.isEmpty()) {
             return "empty tank";
         }
+        String raw = BuiltInRegistries.FLUID.getKey(stack.getFluid()).toString();
         String id = idOf(stack);
+        // Both ids are printed when they differ: "the pipe filled it with flowing_x" is the first thing a pack
+        // author needs to know when a tank refuses to pay.
+        String subject = raw.equals(id) ? id : raw + " (still form " + id + ")";
         return table.resolve(id)
-                .map(found -> id + " -> " + found.rate().describe() + " via " + found.source())
-                .orElseGet(() -> id + " -> not registered as experience fluid");
+                .map(found -> subject + " -> " + found.rate().describe() + " via " + found.source())
+                .orElseGet(() -> subject + " -> not registered as experience fluid");
     }
 
+    /** The still form's id; the flowing variant of a declared fluid has to price like the declared one. */
     public static String idOf(FluidStack stack) {
-        return BuiltInRegistries.FLUID.getKey(stack.getFluid()).toString();
+        return FluidIds.idOf(stack);
     }
 
     public static Optional<XpRate> rateFor(FluidStack stack) {

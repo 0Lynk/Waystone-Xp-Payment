@@ -9,6 +9,7 @@ import com.olynk.waystonexppayment.auth.TeamResolvers;
 import com.olynk.waystonexppayment.client.XppClientTankRegistry;
 import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.data.TankPoolIndex;
+import com.olynk.waystonexppayment.fluid.FluidIds;
 import com.olynk.waystonexppayment.fluid.FluidRates;
 import com.olynk.waystonexppayment.fluid.XpRate;
 import com.olynk.waystonexppayment.registry.XppRegistry;
@@ -80,11 +81,14 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
 
             @Override
             public int fill(FluidStack resource, FluidAction action) {
-                int filled = super.fill(resource, action);
-                if (filled == 0 && action.execute() && !resource.isEmpty() && !getFluid().isEmpty()
-                        && !FluidStack.isSameFluidSameComponents(getFluid(), resource)) {
+                // Restamped before the tank stores it: a pipe pours the flowing variant, a bucket the still one, and
+                // a tank holding one while a pipe offers the other would report "that is a different fluid".
+                FluidStack still = FluidIds.canonical(resource);
+                int filled = super.fill(still, action);
+                if (filled == 0 && action.execute() && !still.isEmpty() && !getFluid().isEmpty()
+                        && !FluidStack.isSameFluidSameComponents(getFluid(), still)) {
                     logRefusalOnce("holds " + FluidRates.describe(getFluid()) + " and refuses the different fluid "
-                            + FluidRates.describe(resource) + " - drain it first (one fluid per tank)");
+                            + FluidRates.describe(still) + " - drain it first (one fluid per tank)");
                 }
                 return filled;
             }
@@ -325,6 +329,7 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         tank.readFromNBT(registries, tag);
+        canonicaliseLoadedFluid();
         clampLoadedPoolToCapacity();
         if (tag.contains("access")) {
             access = AccessList.load(tag.getCompound("access"));
@@ -349,6 +354,23 @@ public class XpPaymentTankBlockEntity extends BlockEntity {
     public void setChanged() {
         super.setChanged();
         broadcastToClients();
+    }
+
+    /**
+     * Rewrites a loaded pool onto the still form of its fluid.
+     *
+     * <p>Worlds saved before this rule existed hold whatever the pipe pushed, which is the flowing id. Left alone such
+     * a tank keeps paying nothing (its id is not the one the datapack declared) and the screen shows a fluid name the
+     * pack author never wrote. The rewrite happens on load, in place, and preserves the amount.
+     */
+    private void canonicaliseLoadedFluid() {
+        FluidStack stored = tank.getFluid();
+        FluidStack still = FluidIds.canonical(stored);
+        if (still != stored) {
+            WaystoneXpPaymentMod.LOGGER.info("Tank at {} stored the flowing form of its fluid and now holds {}",
+                    worldPosition.toShortString(), FluidRates.describe(still));
+            tank.setFluid(still);
+        }
     }
 
     /**

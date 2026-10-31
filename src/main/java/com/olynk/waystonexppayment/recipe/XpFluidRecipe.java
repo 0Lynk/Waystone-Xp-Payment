@@ -1,11 +1,11 @@
 package com.olynk.waystonexppayment.recipe;
 
 import com.olynk.waystonexppayment.fluid.FluidDeclaration;
+import com.olynk.waystonexppayment.fluid.FluidIds;
 import com.olynk.waystonexppayment.fluid.XpRate;
 import com.olynk.waystonexppayment.registry.XppRegistry;
 
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
@@ -69,7 +69,9 @@ public class XpFluidRecipe implements Recipe<RecipeInput> {
     }
 
     public boolean matchesFluid(FluidStack stack) {
-        return !stack.isEmpty() && fluid.equals(BuiltInRegistries.FLUID.getKey(stack.getFluid()));
+        // The still id of whatever is in the stack, so a declaration of the still form also answers for the
+        // flowing form a pipe just poured in.
+        return !stack.isEmpty() && fluid.toString().equals(FluidIds.idOf(stack));
     }
 
     // A registration entry, never a craftable recipe.

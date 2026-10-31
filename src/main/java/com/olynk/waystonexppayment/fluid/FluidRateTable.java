@@ -64,13 +64,16 @@ public final class FluidRateTable {
     }
 
     /**
-     * The same fluid id with its still/flowing marker flipped.
+     * Fallback for a fluid id whose still/flowing pair has to be guessed from its name.
+     *
+     * <p>The normal path is {@link FluidIds#canonical(net.minecraft.world.level.material.Fluid)}, which asks the fluid
+     * object for its still form and cannot be wrong. This one only runs when a registry entry is not a
+     * {@code FlowingFluid}, or when only an id string survived (an old datapack entry, an admin typing an id).
      *
      * <p>Mods spell the pair three different ways and all three are in the wild: vanilla-style
-     * {@code x} / {@code flowing_x}, Ender IO's {@code fluid_xp_juice_still} / {@code ..._flowing}, and
-     * Sophisticated Core's {@code xp_still} / {@code xp_flowing}. A datapack author declares whichever id the
-     * mod registered; the other half of the pair has to resolve to it, otherwise a tank that happens to hold
-     * the flowing variant pays nothing.
+     * {@code x} / {@code flowing_x}, Cyclic's {@code xpjuice} / {@code xpjuice_flowing}, and Ender IO's
+     * {@code fluid_xp_juice_still} / {@code ..._flowing}. Each branch below has a real mod behind it; the last line
+     * is the vanilla prefix spelling, which is also what a bare id with no marker gets.
      */
     static String counterpartId(String fluidId) {
         int colon = fluidId.indexOf(':');

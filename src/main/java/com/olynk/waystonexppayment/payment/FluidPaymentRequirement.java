@@ -153,6 +153,10 @@ public final class FluidPaymentRequirement implements WarpRequirement {
         if (costXp > 0) {
             tooltip.add(Component.translatable("gui.waystone_xp_payment.fluid_cost", costXp)
                     .withStyle(ChatFormatting.AQUA));
+            PaymentSplit plan = split(player);
+            // Same sentence the client preview prints, so the two paths cannot read as two different features.
+            tooltip.add(Component.translatable("gui.waystone_xp_payment.tank_cover", plan.xpFromFluid(), costXp)
+                    .withStyle(plan.affordable() ? ChatFormatting.GRAY : ChatFormatting.RED));
         }
         if (residual != null) {
             residual.appendHoverText(player, tooltip);

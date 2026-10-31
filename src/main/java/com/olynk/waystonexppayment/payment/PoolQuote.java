@@ -45,15 +45,4 @@ public record PoolQuote(int costXp, int poolXp, int xpFromTank, int xpFromPlayer
     public boolean tankCoversAll() {
         return xpFromTank == costXp;
     }
-
-    /**
-     * Whether topping the tank up to its capacity would make this trip affordable.
-     *
-     * <p>The advice "fill the tank" is only true while the missing fluid still fits. A fare capped above what a
-     * full tank is worth (a 16-bucket tank of a 10 XP/bucket fluid is worth 160 XP) cannot be closed that way, and
-     * telling the player how many mB are missing would send them to fill a tank that is already full.
-     */
-    public boolean topUpWouldCloseTheGap(int capacityMb) {
-        return missingMb <= Math.max(0, capacityMb - tankMb);
-    }
 }

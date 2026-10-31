@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+### Changed
+
+- **The teleport tooltip says "paid from the tank", not "from the tank below"**: the paying tank can sit under the
+  destination, so naming a direction was wrong half the time.
+- **One second line instead of two**: the line under that cost used to change shape - nothing at all when the tank
+  covered the trip, "the tank covers X of Y (N mB short)" when topping up would help, and "covers at most X; the rest
+  is yours" when the fare was beyond a full tank. All three are now the single sentence "the tank covers X XP of the
+  Y XP this trip needs", grey when it covers the trip and red when it does not, on both the preview and the server's
+  own requirement.
+
 ## 0.6.0 - 2026-10-31
 
 ### Changed

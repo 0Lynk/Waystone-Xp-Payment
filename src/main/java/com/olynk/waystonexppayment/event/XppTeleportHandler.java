@@ -10,6 +10,7 @@ import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.data.TankPoolIndex;
 import com.olynk.waystonexppayment.fluid.FluidRates;
+import com.olynk.waystonexppayment.fluid.XpRate;
 import com.olynk.waystonexppayment.payment.FluidPaymentRequirement;
 import com.olynk.waystonexppayment.payment.PayerBudget;
 import com.olynk.waystonexppayment.payment.TankPlacement;
@@ -111,13 +112,15 @@ public final class XppTeleportHandler {
             return null;
         }
         if (tank.poolXp() <= 0) {
-            // The tank holds something it cannot be paid with. Say so once per attempt: this is the only way to
-            // tell "the fluid is not recognized" apart from "the pool is empty" after the fact. It is also not a
-            // payer: keeping it would spend this trip's only choice on a tank that pays nothing and never let the
+            // Worth nothing yet, and not the same thing as unrecognised: a declared fluid below one XP's worth of
+            // mB rounds to zero, so the log has to show both the amount and what one XP would need. It is also not
+            // a payer: keeping it would spend this trip's only choice on a tank that pays nothing and never let the
             // other end's tank - the one the client preview named - have its turn.
-            WaystoneXpPaymentMod.LOGGER.warn("Tank at {} cannot pay: {} (declare the fluid with a "
-                            + "waystone_xp_payment:xp_fluid recipe to make it count)",
-                    tankPos.toShortString(), FluidRates.describe(tank.getTank().getFluid()));
+            XpRate rate = tank.rate();
+            WaystoneXpPaymentMod.LOGGER.warn("Tank at {} holds {} mB of {}, which is worth less than 1 XP "
+                            + "(one XP needs {} mB); it cannot pay this trip",
+                    tankPos.toShortString(), tank.getTank().getFluidAmount(),
+                    FluidRates.describe(tank.getTank().getFluid()), rate == null ? 0 : rate.mbForXp(1));
             return null;
         }
         return new Payer(kind, level, tankPos, tank);

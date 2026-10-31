@@ -8,7 +8,7 @@ import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 import com.olynk.waystonexppayment.config.XppSettings;
 import com.olynk.waystonexppayment.fluid.XpRate;
 import com.olynk.waystonexppayment.net.XppTankHintPayload;
-import com.olynk.waystonexppayment.payment.PaymentSplit;
+import com.olynk.waystonexppayment.payment.PoolQuote;
 
 import net.blay09.mods.waystones.api.requirement.WarpRequirement;
 import net.minecraft.ChatFormatting;
@@ -74,7 +74,7 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
         Integer poolXp = knownPoolXp();
         boolean unresolved = poolXp == null && awaitingReading();
         boolean tankShort = poolXp != null
-                && !PaymentSplit.compute(costXp, poolXp, knownRate(), player.totalExperience).affordable();
+                && !PoolQuote.of(costXp, poolXp, knownRate(), player.totalExperience).affordable();
         if ((unresolved || tankShort) && !skipsPayment(player)) {
             return false;
         }
@@ -116,9 +116,11 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
                     : "no pool reading here (server decides)";
             return state + ", player " + held + " XP, cost " + costXp + " XP";
         }
-        PaymentSplit split = PaymentSplit.compute(costXp, poolXp, knownRate(), held);
-        return "tank " + split.xpFromFluid() + " of " + poolXp + " XP, player " + split.xpFromPlayer() + " of "
-                + held + " XP, cost " + costXp + " XP";
+        PoolQuote quote = PoolQuote.of(costXp, poolXp, knownRate(), held);
+        String shortfall = quote.affordable() ? ""
+                : ", short " + quote.missingXp() + " XP (" + quote.missingMb() + " mB)";
+        return "tank " + quote.xpFromTank() + " of " + poolXp + " XP, player " + quote.xpFromPlayer() + " of "
+                + held + " XP, cost " + costXp + " XP" + shortfall;
     }
 
     /**
@@ -174,6 +176,16 @@ public final class ClientFluidPaymentRequirement implements WarpRequirement {
         if (costXp > 0) {
             tooltip.add(Component.translatable("gui.waystone_xp_payment.fluid_cost", costXp)
                     .withStyle(ChatFormatting.AQUA));
+            Integer poolXp = knownPoolXp();
+            if (poolXp != null) {
+                PoolQuote quote = PoolQuote.of(costXp, poolXp, knownRate(), player.totalExperience);
+                // A tank of a cheap fluid holds plenty of mB and little XP; saying only "costs 27 XP" makes a grey
+                // entry look like a bug. The numbers are what an operator can act on.
+                if (!quote.affordable()) {
+                    tooltip.add(Component.translatable("gui.waystone_xp_payment.tank_short", quote.xpFromTank(),
+                            costXp, quote.missingMb()).withStyle(ChatFormatting.RED));
+                }
+            }
         }
     }
 

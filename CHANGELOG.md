@@ -31,6 +31,15 @@ All notable changes to this project are documented here.
 - **Tanks store the still form**: a pipe pouring `...:flowing_experience` into a tank no longer leaves it holding a
   fluid that no datapack declared. Tanks saved by older versions are rewritten in place on load; amount and XP value
   are unchanged, and the tank's own drain side still hands out whatever it stores.
+- **A grey entry now says why in numbers**: when the tank cannot cover a trip, its tooltip adds how much the tank is
+  worth, how much the trip costs, and how many mB are missing. A tank of a 10 XP/bucket fluid holding 1000 mB is worth
+  10 XP, not 1000, and that is now visible instead of looking like a broken tank. One `PoolQuote` computes the split
+  for the button, the tooltip, the tank screen and the bill, so they cannot disagree.
+- **Datapack declarations are attributed to the pack they came from again**: `sourcePackOf` was building
+  `data/<ns>/data/recipe/...`, which never matched, so every declaration logged `via unknown:` and pack priority fell
+  back to recipe-id order.
+- **The server's "cannot pay" warning reports mB, not a guess**: it used to suggest the fluid was undeclared even when
+  a declared fluid simply held less than one XP's worth.
 
 ### Removed
 

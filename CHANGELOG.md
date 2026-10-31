@@ -7,8 +7,11 @@ All notable changes to this project are documented here.
 ### Changed
 
 - **The tank holds 16 buckets instead of 4, and 16000 mB is now the ceiling**: a tank is a wallet, not a storage
-  block, and a fare capped at 27 XP is worth 2700 mB of a 10 XP/bucket fluid. Tanks already placed keep the capacity
-  they were built with; break and replace one to grow it. A config that used to allow up to 1,000,000 mB is clamped
+  block, and a fare capped at 27 XP is worth 2700 mB of a 10 XP/bucket fluid. **If you already have a config file,
+  set `capacityMb = 16000` there yourself** - NeoForge never rewrites a value that is already present, so the new
+  default only reaches fresh installs. Capacity is not stored in the world: tanks pick the value up when their block
+  entity is rebuilt (re-enter the world or restart the server), and the fluid inside is kept. A config that used to
+  allow up to 1,000,000 mB is clamped
   to 16000 on load.
 - **A tank that cannot cover a trip now says which of two things is wrong**: if the missing fluid still fits, the
   tooltip keeps "(%s mB short)" — topping the tank up fixes it. If the fare is beyond what a full tank is worth (only

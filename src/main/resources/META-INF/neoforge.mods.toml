@@ -1,7 +1,7 @@
 modLoader = "javafml"
 loaderVersion = "${loader_version_range}"
 license = "${mod_license}"
-issueTrackerURL = "https://github.com/0Lynk/waystone_xp_payment/issues"
+issueTrackerURL = "https://github.com/0Lynk/Waystone-Xp-Payment/issues"
 
 [[mods]]
 modId = "${mod_id}"

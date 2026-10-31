@@ -46,7 +46,7 @@
 | 可选 KubeJS | `dev.latvian.mods:kubejs-neoforge:2101.7.2-build.379`（1.21.1 线；`https://maven.latvian.dev/releases/`） | §6，阶段② |
 | 构建插件 | ModDevGradle（`net.neoforged.moddev`）——具体版本在骨架步骤用插件市场实际解析确认，不写猜的版本号 | 待步骤 S1 实测 |
 
-命名：mod id `waystone_xp_payment`；包 `com.olynk.waystonexppayment`；仓库 `0Lynk/waystone_xp_payment`（私有）。
+命名：mod id `waystone_xp_payment`；包 `com.olynk.waystonexppayment`；仓库 `0Lynk/Waystone-Xp-Payment`（私有）。
 
 ---
 
@@ -273,7 +273,7 @@ src/test/java/com/olynk/waystonexppayment/  PaymentSplitTest, FluidRatesTest, Xp
 证据（原始日志行 / 命令输出 / 截图）汇总到 `docs/verification.md`。
 
 ## 11. 项目管理与 GitHub 交付
-- 仓库：`0Lynk/waystone_xp_payment`（**私有**）；默认分支 `main`；Trunk-Based（分支 ≤3 天）；仅 Draft PR。
+- 仓库：`0Lynk/Waystone-Xp-Payment`（**私有**）；默认分支 `main`；Trunk-Based（分支 ≤3 天）；仅 Draft PR。
 - CI：`.github/workflows/build.yml`（JDK 21 temurin → `./gradlew build` → 上传 jar 工件），无需密钥。
 - 文档：`README.md`（含 zh_CN 版）、`CHANGELOG.md`、`LICENSE`（MIT，纯自研代码；CEI 仅取"1 mB = 1 XP"这一公开行为数值，不复制代码）、`.gitignore`（`run/`、`.gradle/`、`build/`）。
 - **凭据现状**：用户指定的 `C:\Users\Dogay\.dsh\github_token.txt` **当前存在但为空（0 字节）** → 建仓/推送步骤需要用户写入 PAT（或改用其它授权方式）。

@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 0.6.0 - 2026-10-31
 
 ### Changed
 
@@ -75,6 +75,7 @@ All notable changes to this project are documented here.
 - A tank that already holds such a fluid when a server upgrades keeps the fluid but cannot spend it, contrary to the
   design note that expected it to be cleared.
 - The stored pool index of a pre-upgrade world is converted on load, so a remembered distant tank stays quotable.
+
 ## 0.3.0 - 2026-10-17
 
 ### Added

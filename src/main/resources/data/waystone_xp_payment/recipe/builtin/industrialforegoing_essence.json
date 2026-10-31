@@ -1,0 +1,5 @@
+{
+  "type": "waystone_xp_payment:xp_fluid",
+  "fluid": "industrialforegoing:essence",
+  "xp_per_bucket": 10
+}

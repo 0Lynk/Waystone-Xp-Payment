@@ -3,9 +3,34 @@
 Every claim in `README.md` / `CHANGELOG.md` should be traceable to something below. Commands are the ones
 actually run; the environment caveats that change how a command looks are stated where they matter.
 
-**Current release: 0.6.0.** Section 0.6 below is the record for it; section 0.3 is the 0.3.0 record, section 0 the
-0.2.0 one, and sections 1-4 were written for 0.1.0 and are kept as they stand. Where they disagree on a number (test
-count, jar size), section 0.6 wins, then 0.3, then 0, then the older ones.
+**Current release: 0.6.1.** Section 0.6.1 below is the record for it, section 0.6 is the 0.6.0 record, section 0.3
+the 0.3.0 record, section 0 the 0.2.0 one, and sections 1-4 were written for 0.1.0 and are kept as they stand. Where
+they disagree on a number (test count, jar size), section 0.6.1 wins, then 0.6, then 0.3, then 0, then the older ones.
+
+## 0.6.1. The 0.6.1 release (2026-10-31)
+
+A patch release: two built-in rates that had shipped as unmeasured placeholders were corrected to the measured value,
+and the teleport tooltip stopped claiming which tank pays while collapsing three different second lines into one.
+`CHANGELOG.md` lists both; the rounds are in `docs/变更记录/2026-11-03_超越维度与精妙存储汇率修正.md` and
+`docs/变更记录/2026-10-31_传送条目第二行统一.md`.
+
+| step | command | result |
+|---|---|---|
+| full build incl. the unit tests (this is what CI runs) | `gradlew build --offline` | **BUILD SUCCESSFUL** |
+| unit tests | part of the same `gradlew build` | **27 suites, 167 tests, 0 failures, 0 errors** (`build/test-results/test/*.xml` summed) |
+| rate correction, negative check | set `sophisticatedcore_xp_still.json` back to 1000, run the tests | `BuiltinDeclarationsTest.java:77` fails (`167 tests completed, 1 failed`); restored -> green |
+| tooltip wording, negative check | delete the Chinese `tank_cover` line, run the tests | `LangKeysTest` 4 tests, 2 failures (`bothFilesCarryTheSameKeys`); restored -> green |
+| jar | built from the merge commit of PR #67 and the same file that was published and deployed | `waystone_xp_payment-0.6.1+mc1.21.1.jar`, see the release record below for the exact size and sha256 |
+| version inside the jar | read `META-INF/neoforge.mods.toml` out of that jar | `version = "0.6.1"`, expanded at build time from `mod_version` in `gradle.properties:13` |
+| modpack deployment | the 0.6.1 jar copied into all six `mods` folders (the test server plus two launchers' instances, including the 216-jar pack) | same sha256 on every side, one `waystone_xp_payment-*.jar` per folder; **the in-game retest is the pack owner's, not done here** |
+| server smoke | `gradlew runServer` then RCON `stop` | `0.6.1 initialized`, `Loaded 8 experience fluid declaration(s), 8 fluid(s) in the table`, no ERROR, clean stop |
+
+### Not verified for 0.6.1 (do not claim otherwise)
+
+- The three tooltip states as *rendered*: the unified second line is asserted only through the lang keys and the
+  `PoolQuote` numbers, never side-by-side in a client at three different pool levels.
+- The corrected rates in someone else's pack: the measurement behind them is the pack owner's, not repeated here.
+- Everything under "Not verified" in sections 0.6 and 0.3 that 0.6.1 did not touch.
 
 ## 0.6. The 0.6.0 release (2026-10-31)
 

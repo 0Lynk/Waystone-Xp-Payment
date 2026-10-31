@@ -2,14 +2,17 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 0.6.1 - 2026-10-31
 
-### Changed
+### Fixed
 
 - **Beyond Dimensions and Sophisticated Core are priced at 10 XP per bucket**: both shipped as placeholders at 1000
   because nobody had measured them. Measured against the same exchanger that produced the other cheap fluids, they
   are worth a full bucket per 10 XP, like Ender IO. Every fluid in the built-in table now has a measured rate behind
-  it.
+  it, and `BuiltinDeclarationsTest` pins these two numbers so a digit change cannot slip through unseen.
+
+### Changed
+
 - **The teleport tooltip says "paid from the tank", not "from the tank below"**: the paying tank can sit under the
   destination, so naming a direction was wrong half the time.
 - **One second line instead of two**: the line under that cost used to change shape - nothing at all when the tank
@@ -17,6 +20,13 @@ All notable changes to this project are documented here.
   is yours" when the fare was beyond a full tank. All three are now the single sentence "the tank covers X XP of the
   Y XP this trip needs", grey when it covers the trip and red when it does not, on both the preview and the server's
   own requirement.
+
+### Notes
+
+- No datapack or config change is needed to upgrade: rates are looked up when a tank is read, so the corrected prices
+  apply the moment the jar is swapped. Existing tanks keep their fluid.
+- The shortfall hint ("N mB short, top the tank up") is gone with the merge into one sentence. Both numbers still sit
+  in the line, so the gap stays readable by subtraction.
 
 ## 0.6.0 - 2026-10-31
 

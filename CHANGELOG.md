@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+### Fixed
+
+- **A greyed-out entry for a far-away tank can recover**: with the list open, the client remembers which slot holds a
+  tank and asks the server about the slots it cannot read. That memory used to outrank the server's own answer, so once
+  a tank had been moved a block down (or broken and rebuilt) the entry kept quoting the stale slot, found nothing there,
+  and stayed grey for the rest of the session - reopening the list did not help. A slot the server says holds no tank,
+  or which this player may not spend from, now yields to the sibling slot that can pay.
+- **A remote tank is quoted even when its chunk is not loaded**: as long as the server's last answer says a tank is
+  really there, the entry follows that reading instead of falling back to the vanilla XP requirement, so a tank refilled
+  while you are away lights up on its own. The diagnostic line in the log now names the slot and what the server said
+  about it.
+
 ## 0.6.2 - 2026-11-01
 
 ### Added

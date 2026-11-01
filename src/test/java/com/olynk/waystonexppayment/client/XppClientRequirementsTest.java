@@ -21,7 +21,8 @@ import net.minecraft.core.BlockPos;
  *
  * <p>What the slot tests guard: with an unloaded waystone the tank can be in either slot, so the entry may only stay
  * grey when neither slot can pay - and a slot this client remembers seeing must not be dropped for a hint about the
- * other one.
+ * other one. It may only be dropped when the server itself says that slot cannot pay, because a memory of where a
+ * tank was is not a claim that it is still there.
  *
  * <p>What the self-target tests guard: the row for the waystone you are standing on is Waystones' own grey, and a
  * payment preview that took it over would light it up again once the tank was refilled.
@@ -51,6 +52,29 @@ class XppClientRequirementsTest {
         assertEquals(FAR, XppClientRequirements.selectPayerSlot(CANDIDATES, FAR::equals,
                         slot -> NEAR.equals(slot) ? XppTankHintPayload.Hint.allowed(NEAR, 900, 20) : null),
                 "what this client saw is ground truth; a cached answer about the other slot cannot outrank it");
+    }
+
+    @Test
+    void aRememberedSlotTheServerSaysIsEmptyIsStillTheTank() {
+        assertEquals(NEAR, XppClientRequirements.selectPayerSlot(CANDIDATES, NEAR::equals,
+                        slot -> NEAR.equals(slot) ? XppTankHintPayload.Hint.allowed(NEAR, 0, 20) : null),
+                "an empty tank is a tank: it may be refilled, so memory keeps the slot and the refresh lights it");
+    }
+
+    @Test
+    void aRememberedSlotTheServerSaysHasNoTankYieldsToThePayingSibling() {
+        assertEquals(FAR, XppClientRequirements.selectPayerSlot(CANDIDATES, NEAR::equals,
+                        slot -> NEAR.equals(slot) ? XppTankHintPayload.Hint.none(NEAR)
+                                : XppTankHintPayload.Hint.allowed(FAR, 60, 10000)),
+                "the tank moved a block down; keeping the stale memory greyed the entry for the whole session");
+    }
+
+    @Test
+    void aRememberedSlotThisPlayerMayNotUseYieldsToThePayingSibling() {
+        assertEquals(FAR, XppClientRequirements.selectPayerSlot(CANDIDATES, NEAR::equals,
+                        slot -> NEAR.equals(slot) ? XppTankHintPayload.Hint.denied(NEAR)
+                                : XppTankHintPayload.Hint.unknown(FAR)),
+                "a refusal is an answer too: the other slot must still get its chance");
     }
 
     @Test

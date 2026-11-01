@@ -169,9 +169,11 @@ public final class XppClientRequirements {
      * <p>Split from {@link #tankBelow} so the choice can be unit tested without a client world:
      * {@link BlockPos} and {@link XppTankHintPayload.Hint} are plain data.
      *
-     * <p>Two rounds on purpose. A slot this client has seen itself is ground truth, a server hint is a cached
-     * answer, and when the waystone's shape is unknown the tank is as likely to be the second candidate as the
-     * first - so a hint on the first must not shadow the tank this client remembers on the second.
+     * <p>Two rounds on purpose, but memory is not unconditional: a slot this client has seen is ground truth
+     * about where a tank <em>was</em>, while a "nothing is there" answer is fresher evidence that it is gone (the
+     * tank was moved one block down, or broken and rebuilt). Letting memory win outright picked the stale slot,
+     * {@link #payerAt} then rejected it, and the entry greyed for the rest of the session even though the sibling
+     * candidate was paying - the reported "grey button, and reopening the list does not help".
      *
      * @param candidates slots to consider, in preference order
      * @param seenHere whether this client has already seen a tank at that slot
@@ -181,7 +183,8 @@ public final class XppClientRequirements {
     static BlockPos selectPayerSlot(List<BlockPos> candidates, Predicate<BlockPos> seenHere,
                                     Function<BlockPos, XppTankHintPayload.Hint> hintOf) {
         for (BlockPos candidate : candidates) {
-            if (seenHere.test(candidate)) {
+            XppTankHintPayload.Hint hint = hintOf.apply(candidate);
+            if (seenHere.test(candidate) && (hint == null || hint.mayPay())) {
                 return candidate;
             }
         }
@@ -236,12 +239,12 @@ public final class XppClientRequirements {
     }
 
     /**
-     * The first end holding a tank whose contents this client can read right now, empty or not, or {@code null}
-     * when neither does.
+     * The first end holding a tank this client can quote at all, empty or not, or {@code null} when neither does.
      *
-     * <p>Only tanks that are loaded here count: a far-away slot is quoted from a hint that is refreshed when the
-     * entry is built, so wrapping it could not follow the pool while the list stays open - it would only swap one
-     * never-changing grey row for another.
+     * <p>A loaded tank counts because its pool is read straight from the block entity. A far-away tank counts too,
+     * but only when the last server answer says a tank is really there: its pool then comes from that answer and is
+     * re-asked while the list is open, so wrapping it lets a refilled tank light the entry instead of leaving one
+     * permanent grey row where the vanilla requirement used to be.
      */
     @Nullable
     private static TankRef readableTank(@Nullable TankRef source, @Nullable TankRef target) {
@@ -252,7 +255,14 @@ public final class XppClientRequirements {
     }
 
     private static boolean isReadable(@Nullable TankRef ref) {
-        return ref != null && ref.loaded() != null;
+        if (ref == null) {
+            return false;
+        }
+        if (ref.loaded() != null) {
+            return true;
+        }
+        XppTankHintPayload.Hint hint = XppTankHints.hint(ref.dimension(), ref.pos());
+        return hint != null && hint.hasTank();
     }
 
     /** Waystone dimension and position for diagnostics, or {@code none}. */
@@ -262,14 +272,34 @@ public final class XppClientRequirements {
                 : waystone.getDimension().location() + "@" + waystone.getPos().toShortString();
     }
 
-    /** What this client knows about one candidate tank, for the log: nothing, position only, or a real tank. */
+    /**
+     * What this client knows about one candidate tank, for the log.
+     *
+     * <p>For a slot whose block entity is not here, the server's last answer is the only thing that can explain a
+     * grey button, so it is printed with it.
+     */
     private static String describeTank(@Nullable TankRef ref) {
         if (ref == null) {
             return "no tank";
         }
-        return ref.loaded() == null
-                ? "tank not loaded here"
-                : (ref.loaded().getTank().isEmpty() ? "empty tank" : "usable tank")
-                        + " at " + ref.loaded().getBlockPos().toShortString();
+        String slot = " at " + ref.pos().toShortString();
+        if (ref.loaded() != null) {
+            return (ref.loaded().getTank().isEmpty() ? "empty tank" : "usable tank") + slot;
+        }
+        return "unloaded slot" + slot + " (" + describeHint(XppTankHints.hint(ref.dimension(), ref.pos())) + ")";
+    }
+
+    /** The server's last answer for one slot, in words. */
+    private static String describeHint(@Nullable XppTankHintPayload.Hint hint) {
+        if (hint == null) {
+            return "no answer yet";
+        }
+        if (hint.knownAbsent()) {
+            return "server says no tank";
+        }
+        if (hint.access() == XppTankHintPayload.Access.DENIED) {
+            return "server says denied";
+        }
+        return hint.hasTank() ? "server says " + hint.poolXp() + " XP" : "server says unknown";
     }
 }

@@ -45,7 +45,10 @@ public final class XppRegistry {
             () -> new XpPaymentTankBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.METAL)
                     .strength(3.5F, 6.0F)
-                    .sound(SoundType.METAL)));
+                    .sound(SoundType.METAL)
+                    // Without this the tank counts as a full cube: neighbours drop the faces that touch it, so
+                    // looking down through the glass floor showed the void instead of the grass underneath.
+                    .noOcclusion()));
 
     public static final DeferredItem<BlockItem> XP_PAYMENT_TANK_ITEM =
             ITEMS.registerSimpleBlockItem("xp_payment_tank", XP_PAYMENT_TANK);

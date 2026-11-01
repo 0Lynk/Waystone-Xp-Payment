@@ -10,6 +10,9 @@ All notable changes to this project are documented here.
   with `cutout` so the glass is see-through from both sides. The panes span the full inner opening and tuck into the
   frame instead of floating inside it. Both textures are drawn by the owner; the glass art holds two 14x14 squares -
   one for the four sides, one for the lid and floor - and the model samples each where it was drawn.
+- **The tank no longer blocks the light of its neighbours**: the block is registered with `noOcclusion()`. Without it
+  the game treated the tank as a full cube and dropped every face touching it, so looking down through the glass floor
+  showed the void instead of the block underneath.
 - **The item model now inherits display transforms**: the block model parents `minecraft:block/block`, so the tank
   sits correctly in the inventory, in the hand and on the ground. The old model had no parent at all, which is why the
   item rendered at whatever rotation the renderer fell back to.

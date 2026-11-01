@@ -3,9 +3,43 @@
 Every claim in `README.md` / `CHANGELOG.md` should be traceable to something below. Commands are the ones
 actually run; the environment caveats that change how a command looks are stated where they matter.
 
-**Current release: 0.6.1.** Section 0.6.1 below is the record for it, section 0.6 is the 0.6.0 record, section 0.3
-the 0.3.0 record, section 0 the 0.2.0 one, and sections 1-4 were written for 0.1.0 and are kept as they stand. Where
-they disagree on a number (test count, jar size), section 0.6.1 wins, then 0.6, then 0.3, then 0, then the older ones.
+**Current release: 0.6.2.** Section 0.6.2 below is the record for it, section 0.6.1 is the 0.6.1 record, section 0.6
+is the 0.6.0 record, section 0.3 the 0.3.0 record, section 0 the 0.2.0 one, and sections 1-4 were written for 0.1.0
+and are kept as they stand. Where they disagree on a number (test count, jar size), section 0.6.2 wins, then 0.6.1,
+then 0.6, then 0.3, then 0, then the older ones.
+
+## 0.6.2. The 0.6.2 release (2026-11-01)
+
+The tank became visible. A block entity renderer draws the fluid inside it from each fluid's own animated sprite, the
+surface eases to its level, a fluid that declares light lights the room, and the block now uses the owner's model
+instead of a placeholder cube. `CHANGELOG.md` lists the rounds; they are in
+`docs/变更记录/2026-11-01_储罐流体渲染.md`, `docs/变更记录/2026-11-01_流体四边形绕序.md`,
+`docs/变更记录/2026-11-01_发光流体.md` and `docs/变更记录/2026-11-01_储罐模型重做.md`.
+
+| step | command | result |
+|---|---|---|
+| full build incl. the unit tests (this is what CI runs) | `gradlew build --offline` | **BUILD SUCCESSFUL** |
+| unit tests | part of the same `gradlew build` | **30 suites, 182 tests, 0 failures, 0 errors** (`build/test-results/test/*.xml` summed) |
+| level easing, negative check | replace the exponential easing with `shown = clamped`, run the tests | `FillAnimationTest` fails (`aFullerTankRisesTowardsItsLevel`, `anEmptiedTankFallsBackDown`, `aClockThatGoesBackwardsDoesNotMoveTheLevel`); restored -> green |
+| quad winding, negative check | put the north wall back in the old corner order, run the tests | `TankFacesTest` fails twice at once (winding and sprite direction); restored -> green |
+| fluid light, negative check | make `TankLight.packed` always return the room light, run the tests | `aGlowingFluidIgnoresTheRoom` fails; restored -> green |
+| jar | built from the merge commit of PR #78, the same file that was published and deployed | `waystone_xp_payment-0.6.2+mc1.21.1.jar`, 242,453 bytes, sha256 `5c89255cf1736d9d769274b8848e18e5145c125dfcb6ee8f9bd7d9957b24cd07`, 148 zip entries |
+| version and icon inside the jar | read `META-INF/neoforge.mods.toml` and list the entries of that jar | `version = "0.6.2"`, `logoFile = "waystone_xp_payment.png"`, that entry is 30,586 bytes (a 256x256 render of the tank) |
+| published asset | GitHub release `v0.6.2` (tag on the PR #78 merge commit), release id `430474353` | `size=242453`, `digest=sha256:5c89255cf1736d9d769274b8848e18e5145c125dfcb6ee8f9bd7d9957b24cd07` - byte-identical to the deployed jar |
+| modpack deployment | the 0.6.2 jar copied into all six `mods` folders (the test server plus two launchers' instances, including the 216-jar pack) | same sha256 on every side, one `waystone_xp_payment-*.jar` per folder; **the in-game retest is the pack owner's, not done here** |
+| server smoke | `gradlew runServer` then RCON `stop` | `0.6.2 initialized`, `Loaded 8 experience fluid declaration(s), 8 fluid(s) in the table`, no ERROR, clean stop |
+
+### Not verified for 0.6.2 (do not claim otherwise)
+
+- **The renderer as seen in game.** Everything about the fluid surface - where it sits inside the frame, whether the
+  sprite lines up with the glass, how the easing feels - was reviewed against an offline isometric rasteriser written
+  for the purpose, never on a running client. The one in-game observation so far is the owner's report that the sprite
+  read mirrored, which the winding fix addresses but has not been re-checked on a client.
+- **The light level of a real glowing fluid.** Only the packing helper is unit tested; that the chunk lighting
+  recomputes when a tank is filled or drained is not measured.
+- **Fluids that animate.** The sprite band is taken through `TextureAtlasSprite#getU/getV`, which is what follows an
+  `.mcmeta` animation, but only water and lava were reasoned about, not watched.
+- Everything under "Not verified" in sections 0.6.1, 0.6 and 0.3 that 0.6.2 did not touch.
 
 ## 0.6.1. The 0.6.1 release (2026-10-31)
 

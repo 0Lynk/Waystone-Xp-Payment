@@ -90,46 +90,24 @@ public final class XpPaymentTankRenderer implements BlockEntityRenderer<XpPaymen
         // fluids look like they are boiling).
         float u0 = sprite.getU(0F);
         float u1 = sprite.getU(1F);
-        float vSide0 = sprite.getV(1F - level);
-        float vSide1 = sprite.getV(1F);
-
-        quad(buffer, entry, light, red, green, blue,
-                near, near, near,  far, near, near,  far, top, near,  near, top, near,
-                u0, vSide1, u1, vSide0, 0F, 0F, -1F);
-        quad(buffer, entry, light, red, green, blue,
-                far, near, far,  near, near, far,  near, top, far,  far, top, far,
-                u0, vSide1, u1, vSide0, 0F, 0F, 1F);
-        quad(buffer, entry, light, red, green, blue,
-                near, near, far,  near, near, near,  near, top, near,  near, top, far,
-                u0, vSide1, u1, vSide0, -1F, 0F, 0F);
-        quad(buffer, entry, light, red, green, blue,
-                far, near, near,  far, near, far,  far, top, far,  far, top, near,
-                u0, vSide1, u1, vSide0, 1F, 0F, 0F);
-
-        float vTop0 = sprite.getV(0F);
-        float vTop1 = sprite.getV(1F);
-        quad(buffer, entry, light, red, green, blue,
-                near, top, near,  near, top, far,  far, top, far,  far, top, near,
-                u0, vTop0, u1, vTop1, 0F, 1F, 0F);
+        float bottom = sprite.getV(1F);
+        float bandTop = sprite.getV(1F - level);
+        for (TankFaces.Side side : TankFaces.Side.values()) {
+            boolean isTop = side == TankFaces.Side.TOP;
+            put(buffer, entry, light, red, green, blue,
+                    TankFaces.of(side, near, far, top, u0, u1, bottom, isTop ? sprite.getV(0F) : bandTop));
+        }
     }
 
-    private static void quad(VertexConsumer buffer, PoseStack.Pose pose, int light, float red, float green, float blue,
-            float x0, float y0, float z0, float x1, float y1, float z1,
-            float x2, float y2, float z2, float x3, float y3, float z3,
-            float u0, float v0, float u1, float v1, float normalX, float normalY, float normalZ) {
-        vertex(buffer, pose, light, red, green, blue, x0, y0, z0, u0, v0, normalX, normalY, normalZ);
-        vertex(buffer, pose, light, red, green, blue, x1, y1, z1, u1, v0, normalX, normalY, normalZ);
-        vertex(buffer, pose, light, red, green, blue, x2, y2, z2, u1, v1, normalX, normalY, normalZ);
-        vertex(buffer, pose, light, red, green, blue, x3, y3, z3, u0, v1, normalX, normalY, normalZ);
-    }
-
-    private static void vertex(VertexConsumer buffer, PoseStack.Pose pose, int light, float red, float green,
-            float blue, float x, float y, float z, float u, float v, float normalX, float normalY, float normalZ) {
-        buffer.addVertex(pose, x, y, z)
-                .setColor(red, green, blue, 1F)
-                .setUv(u, v)
-                .setLight(light)
-                .setOverlay(OverlayTexture.NO_OVERLAY)
-                .setNormal(pose, normalX, normalY, normalZ);
+    private static void put(VertexConsumer buffer, PoseStack.Pose pose, int light, float red, float green, float blue,
+            TankFaces.Quad quad) {
+        for (TankFaces.Corner corner : quad.corners()) {
+            buffer.addVertex(pose, corner.x(), corner.y(), corner.z())
+                    .setColor(red, green, blue, 1F)
+                    .setUv(corner.u(), corner.v())
+                    .setLight(light)
+                    .setOverlay(OverlayTexture.NO_OVERLAY)
+                    .setNormal(pose, quad.normalX(), quad.normalY(), quad.normalZ());
+        }
     }
 }

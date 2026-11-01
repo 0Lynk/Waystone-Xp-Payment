@@ -2,10 +2,13 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 0.6.2 - 2026-11-01
 
 ### Added
 
+- **Glowing fluids light the tank and the room**: the block now reports the light level of the fluid it holds, and the
+  surface is drawn at full brightness when that level is above zero. Before this every fluid was shaded by the light
+  of the surrounding blocks, so an experience fluid that glows in an Ender IO or Create tank looked dull here.
 - **The fluid inside the tank is visible**: a block entity renderer draws the top face and the four sides from the
   fluid's own still sprite, so water and lava keep their animation and every fluid keeps its tint. The surface eases
   towards the real level over about half a second (Create does the same; Ender IO does not), and the side texture is
@@ -23,6 +26,15 @@ All notable changes to this project are documented here.
 - **The item model now inherits display transforms**: the block model parents `minecraft:block/block`, so the tank
   sits correctly in the inventory, in the hand and on the ground. The old model had no parent at all, which is why the
   item rendered at whatever rotation the renderer fell back to.
+- **The mod has its own icon**: the list entry used a placeholder image; it now shows a render of the tank.
+
+### Fixed
+
+- **The fluid surface no longer shows its back**: the four side quads were wound clockwise as seen from outside, so
+  the front face pointed into the tank and the sprite read mirrored - you saw the back of the texture from outside and
+  the front from inside. The `u` coordinates ran the wrong way along the walls for the same reason. Neither mistake
+  hid the surface, because the fluid is drawn without culling, so it only showed up to the eye. `TankFacesTest` now
+  pins both the winding and the direction the sprite runs.
 
 ## 0.6.1 - 2026-10-31
 

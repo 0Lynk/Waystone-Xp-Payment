@@ -19,6 +19,7 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
@@ -68,6 +69,22 @@ public class XpPaymentTankBlock extends BaseEntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new XpPaymentTankBlockEntity(pos, state);
+    }
+
+    /**
+     * Lets a tank of glowing fluid light the room, the way Ender IO's tanks do.
+     *
+     * <p>The light has to come from the block rather than from the renderer: the renderer only makes the surface
+     * itself bright, while the light engine has to know before anything is drawn.
+     */
+    @Override
+    public int getLightEmission(BlockState state, BlockGetter level, BlockPos pos) {
+        if (level instanceof Level checked && !checked.isLoaded(pos)) {
+            return 0;
+        }
+        return level.getBlockEntity(pos) instanceof XpPaymentTankBlockEntity tank
+                ? tank.getTank().getFluid().getFluidType().getLightLevel()
+                : 0;
     }
 
     @Override

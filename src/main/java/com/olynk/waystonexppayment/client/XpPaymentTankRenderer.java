@@ -6,6 +6,7 @@ import com.olynk.waystonexppayment.block.entity.XpPaymentTankBlockEntity;
 
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -60,10 +61,12 @@ public final class XpPaymentTankRenderer implements BlockEntityRenderer<XpPaymen
             return;
         }
         TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(still);
+        // The block casts light for the same fluids, so drawing the surface dim here would make it disagree with the
+        // glow the tank gives off.
+        int light = TankLight.packed(packedLight, fluid.getFluidType().getLightLevel(fluid), LightTexture.FULL_BRIGHT);
         // RenderType.translucent() does not cull, which is why water is visible from below and why a winding mistake
         // here cannot make the fluid vanish; Create makes the same choice for its tanks.
-        draw(pose, buffers.getBuffer(RenderType.translucent()), sprite, properties.getTintColor(fluid), level,
-                packedLight);
+        draw(pose, buffers.getBuffer(RenderType.translucent()), sprite, properties.getTintColor(fluid), level, light);
     }
 
     /**

@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+### Added
+
+- **The fluid inside the tank is visible**: a block entity renderer draws the top face and the four sides from the
+  fluid's own still sprite, so water and lava keep their animation and every fluid keeps its tint. The surface eases
+  towards the real level over about half a second (Create does the same; Ender IO does not), and the side texture is
+  anchored at the bottom instead of being squashed into the visible band.
+
 ### Changed
 
 - **The tank is no longer a solid cube**: it now has a model - twelve frame pieces around six panes of glass, drawn

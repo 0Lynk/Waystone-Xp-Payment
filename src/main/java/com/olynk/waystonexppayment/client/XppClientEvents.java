@@ -8,9 +8,10 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
-/** Client-only wiring: the tank screen, and the requirement renderer that keeps Waystones' cost icon honest. */
+/** Client-only wiring: the tank screen, its fluid renderer, and the requirement renderer that keeps Waystones' cost icon honest. */
 @EventBusSubscriber(modid = WaystoneXpPaymentMod.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class XppClientEvents {
 
@@ -20,6 +21,12 @@ public final class XppClientEvents {
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(XppRegistry.XP_PAYMENT_TANK_MENU.get(), XpPaymentTankScreen::new);
+    }
+
+    @SubscribeEvent
+    public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        // The block still renders its own model; this only adds the fluid inside it.
+        event.registerBlockEntityRenderer(XppRegistry.XP_PAYMENT_TANK_BE.get(), context -> new XpPaymentTankRenderer());
     }
 
     @SubscribeEvent

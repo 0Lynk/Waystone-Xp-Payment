@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+### Changed
+
+- **The tank is no longer a solid cube**: it now has a model - twelve frame pieces around five panes of glass, drawn
+  with `cutout` so the glass pane is see-through from both sides. The glass has no top pane on purpose: the fluid
+  surface will be drawn by a block entity renderer, and a lid would hide it. The two textures are 16x16 placeholders;
+  replacing them with your own art needs no code change.
+- **The item model now inherits display transforms**: the block model parents `minecraft:block/block`, so the tank
+  sits correctly in the inventory, in the hand and on the ground. The old model had no parent at all, which is why the
+  item rendered at whatever rotation the renderer fell back to.
+
 ## 0.6.1 - 2026-10-31
 
 ### Fixed
